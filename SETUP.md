@@ -8,7 +8,7 @@ ArcTable is a table-ordering MVP for restaurants with Arc Mainnet USDC payment.
 - TypeScript
 - Tailwind CSS
 - App Router
-- 共有API
+- Shared API route
 - viem
 - wagmi
 - Reown AppKit / WalletConnect
@@ -46,6 +46,28 @@ data/stores/{storeId}.json
 ```
 
 For Vercel deployments, the API also supports Upstash Redis environment variables.
+
+## Production Environment
+
+Wallet connection:
+
+```text
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id
+```
+
+Shared order storage:
+
+```text
+UPSTASH_REDIS_REST_URL=your_upstash_redis_rest_url
+UPSTASH_REDIS_REST_TOKEN=your_upstash_redis_rest_token
+```
+
+Vercel KV-compatible aliases are also supported:
+
+```text
+KV_REST_API_URL=your_kv_rest_url
+KV_REST_API_TOKEN=your_kv_rest_token
+```
 
 ## Arc Mainnet
 
