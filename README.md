@@ -25,12 +25,12 @@ This creates a practical flow for small restaurants:
 - Storage: local JSON in development or Upstash Redis-compatible REST storage
 - Payment: Arc Mainnet native USDC transfer
 - Languages: English and Japanese UI toggle
-- Merchant-editable menu: item name, description, photo URL, USDC price, and payout address
+- Merchant-editable store settings: payout address, item name, description, photo URL, and USDC price
 
 ## Demo Flow
 
 1. Create a store workspace.
-2. Open Settings and add menu items, descriptions, photo URLs, prices, and an Arc USDC payout address.
+2. Open Settings and add the store payout address, menu items, descriptions, photo URLs, and prices.
 3. Open the merchant view and copy the table order URL.
 4. Open the table order URL on a customer phone or browser tab.
 5. Place an order.

@@ -21,7 +21,7 @@ Use this checklist for the Arc Microgrants submission.
 
 ## 3. Arc Mainnet Payment Test
 
-- [ ] Set a valid Arc USDC payout address in the menu item settings.
+- [ ] Set a valid store-level Arc USDC payout address in Settings.
 - [ ] Open the customer table URL.
 - [ ] Place an order.
 - [ ] Mark the order as `Served` in the merchant view.

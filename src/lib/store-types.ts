@@ -58,6 +58,7 @@ export type StoreState = {
   storeName: string;
   exchangeRateJpyPerUsdc: number;
   paymentMode: PaymentMode;
+  recipientAddress?: string;
   shops: Shop[];
   customers: Customer[];
   payments: PaymentRecord[];

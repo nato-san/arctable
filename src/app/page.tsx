@@ -264,6 +264,7 @@ const initialState: StoreState = {
   storeName: "ArcTable Store",
   exchangeRateJpyPerUsdc: INITIAL_EXCHANGE_RATE,
   paymentMode: "demo",
+  recipientAddress: "",
   shops: fallbackShops,
   customers: [],
   payments: [],
@@ -384,7 +385,7 @@ function createId(prefix: string) {
 }
 
 async function sendArcPayment(
-  shop: Shop,
+  recipientAddress: string | undefined,
   priceUsdc: number,
   connectedAddress: string | null,
 ) {
@@ -392,7 +393,7 @@ async function sendArcPayment(
     throw new Error("wallet_missing");
   }
 
-  if (!isAddressLike(shop.recipientAddress)) {
+  if (!isAddressLike(recipientAddress)) {
     throw new Error("recipient_missing");
   }
 
@@ -401,7 +402,7 @@ async function sendArcPayment(
   });
 
   const hash = await sendTransaction(wagmiAdapter.wagmiConfig, {
-    to: shop.recipientAddress as Address,
+    to: recipientAddress as Address,
     value: parseEther(toUsdcAmount(priceUsdc)),
     chainId: ARC_MAINNET_CHAIN_ID,
   });
@@ -469,6 +470,7 @@ export default function Home() {
             storeName: nextStore.storeName,
             exchangeRateJpyPerUsdc: nextStore.exchangeRateJpyPerUsdc,
             paymentMode: nextStore.paymentMode,
+            recipientAddress: nextStore.recipientAddress,
             shops: nextStore.shops,
             customers: nextStore.customers,
             payments: nextStore.payments,
@@ -542,6 +544,7 @@ export default function Home() {
       storeName: nextStore.storeName,
       exchangeRateJpyPerUsdc: nextStore.exchangeRateJpyPerUsdc,
       paymentMode: nextStore.paymentMode,
+      recipientAddress: nextStore.recipientAddress,
       shops: nextStore.shops,
       customers: nextStore.customers,
       payments: nextStore.payments,
@@ -617,7 +620,7 @@ export default function Home() {
       return;
     }
 
-    if (store.paymentMode === "arc-mainnet" && !isAddressLike(shop.recipientAddress)) {
+    if (store.paymentMode === "arc-mainnet" && !isAddressLike(store.recipientAddress)) {
       setStatusMessage(t.recipientMissing);
       return;
     }
@@ -650,7 +653,7 @@ export default function Home() {
       }
 
       setStatusMessage(t.walletConfirm);
-      const transactionHash = await sendArcPayment(shop, order.priceUsdc, walletAddress || null);
+      const transactionHash = await sendArcPayment(store.recipientAddress, order.priceUsdc, walletAddress || null);
 
       setStatusMessage(t.arcConfirm);
       await fetch("/api/store", {
@@ -748,7 +751,7 @@ export default function Home() {
   }
 
   async function saveSettings(
-    nextSettings: Pick<StoreState, "storeName" | "exchangeRateJpyPerUsdc" | "paymentMode" | "shops">,
+    nextSettings: Pick<StoreState, "storeName" | "exchangeRateJpyPerUsdc" | "paymentMode" | "recipientAddress" | "shops">,
   ) {
     if (!storeId) {
       return false;
@@ -910,6 +913,7 @@ export default function Home() {
           <CustomerScreen
             customer={currentCustomer}
             paymentMode={store.paymentMode}
+            recipientAddress={store.recipientAddress}
             shops={store.shops}
             tableId={tableId}
             activeOrder={activeCustomerOrder}
@@ -939,6 +943,7 @@ export default function Home() {
             shopStats={shopStats}
             total={storeTotal}
             paymentMode={store.paymentMode}
+            recipientAddress={store.recipientAddress}
             t={t}
             lang={lang}
             onSelectShop={setSelectedShopId}
@@ -986,7 +991,7 @@ export default function Home() {
                 className="touch-button buy-button"
                 type="button"
                 disabled={
-                  store.paymentMode === "arc-mainnet" && !isAddressLike(confirmShop.recipientAddress)
+                  store.paymentMode === "arc-mainnet" && !isAddressLike(store.recipientAddress)
                 }
                 onClick={() => completePurchase(confirmShop)}
               >
@@ -1106,6 +1111,7 @@ function LanguageToggle({ lang, onChange }: { lang: Lang; onChange: (lang: Lang)
 function CustomerScreen({
   customer,
   paymentMode,
+  recipientAddress,
   shops,
   tableId,
   activeOrder,
@@ -1124,6 +1130,7 @@ function CustomerScreen({
 }: {
   customer: Customer;
   paymentMode: PaymentMode;
+  recipientAddress?: string;
   shops: Shop[];
   tableId: string;
   activeOrder: PaymentRecord | null;
@@ -1247,7 +1254,7 @@ function CustomerScreen({
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         {shops.map((shop) => {
           const priceUsdc = calculateUsdcPrice(shop.priceJpy, INITIAL_EXCHANGE_RATE);
-          const hasRecipient = isAddressLike(shop.recipientAddress);
+          const hasRecipient = isAddressLike(recipientAddress);
           const canBuy = !activeOrder && (paymentMode === "arc-mainnet" ? hasRecipient : true);
           const buttonLabel =
             paymentMode === "arc-mainnet"
@@ -1307,6 +1314,7 @@ function MerchantScreen({
   shopStats,
   total,
   paymentMode,
+  recipientAddress,
   t,
   lang,
   onSelectShop,
@@ -1329,6 +1337,7 @@ function MerchantScreen({
   }[];
   total: number;
   paymentMode: PaymentMode;
+  recipientAddress?: string;
   t: Copy;
   lang: Lang;
   onSelectShop: (shopId: string) => void;
@@ -1407,11 +1416,11 @@ function MerchantScreen({
         <Metric label={t.network} value={paymentMode === "arc-mainnet" ? "Arc Mainnet / On-chain" : "Test checkout"} />
         <Metric
           label={t.receive}
-          value={selectedStats.shop.recipientAddress ? shortHash(selectedStats.shop.recipientAddress) : t.notSet}
+          value={recipientAddress ? shortHash(recipientAddress) : t.notSet}
         />
       </div>
 
-      {paymentMode === "arc-mainnet" && !isAddressLike(selectedStats.shop.recipientAddress) ? (
+      {paymentMode === "arc-mainnet" && !isAddressLike(recipientAddress) ? (
         <p className="mt-3 rounded-lg border border-[#f8d45d]/40 bg-[#f8d45d]/15 px-4 py-3 text-sm font-black text-[#f8d45d]">
           {t.setRecipient}
         </p>
@@ -1535,7 +1544,7 @@ function SettingsScreen({
   statusMessage: string;
   t: Copy;
   onSaveSettings: (
-    nextSettings: Pick<StoreState, "storeName" | "exchangeRateJpyPerUsdc" | "paymentMode" | "shops">,
+    nextSettings: Pick<StoreState, "storeName" | "exchangeRateJpyPerUsdc" | "paymentMode" | "recipientAddress" | "shops">,
   ) => Promise<void>;
   onResetDemo: () => void;
   onBackToTop: () => void;
@@ -1545,6 +1554,7 @@ function SettingsScreen({
     storeName: store.storeName,
     exchangeRateJpyPerUsdc: store.exchangeRateJpyPerUsdc,
     paymentMode: store.paymentMode,
+    recipientAddress: store.recipientAddress || "",
     shops: store.shops,
   }));
 
@@ -1647,6 +1657,21 @@ function SettingsScreen({
         <p className="mt-3 text-sm font-medium leading-6 text-[#53625d]">
           {t.arcModeHelp}
         </p>
+        <div className="mt-4">
+          <label className="field-label" htmlFor="store-recipient">
+            {t.recipient}
+          </label>
+          <input
+            id="store-recipient"
+            className="text-field mt-2 font-mono text-sm"
+            placeholder="0x..."
+            value={draft.recipientAddress}
+            onChange={(event) => setDraft((current) => ({ ...current, recipientAddress: event.target.value.trim() }))}
+          />
+          {draft.paymentMode === "arc-mainnet" && !isAddressLike(draft.recipientAddress) ? (
+            <p className="mt-2 text-sm font-bold text-[#b62e22]">{t.recipientRequired}</p>
+          ) : null}
+        </div>
       </div>
 
       <div className="mt-4 flex items-center justify-between gap-3">
@@ -1739,22 +1764,6 @@ function SettingsScreen({
                   onChange={(event) => updateDraftShop(shop.id, { actionLabel: event.target.value })}
                 />
               </div>
-            </div>
-
-            <div className="mt-3">
-              <label className="field-label" htmlFor={`${shop.id}-recipient`}>
-                {t.recipient}
-              </label>
-              <input
-                id={`${shop.id}-recipient`}
-                className="text-field mt-2 font-mono text-sm"
-                placeholder="0x..."
-                value={shop.recipientAddress || ""}
-                onChange={(event) => updateDraftShop(shop.id, { recipientAddress: event.target.value.trim() })}
-              />
-              {draft.paymentMode === "arc-mainnet" && !isAddressLike(shop.recipientAddress) ? (
-                <p className="mt-2 text-sm font-bold text-[#b62e22]">{t.recipientRequired}</p>
-              ) : null}
             </div>
 
             <div className="mt-4 flex justify-end">

@@ -75,6 +75,7 @@ type StoreAction = {
       storeName: string;
       exchangeRateJpyPerUsdc: number;
       paymentMode: PaymentMode;
+      recipientAddress?: string;
       shops: Shop[];
     }
   | {
@@ -172,6 +173,7 @@ export async function POST(request: NextRequest) {
       storeName: body.storeName,
       exchangeRateJpyPerUsdc: body.exchangeRateJpyPerUsdc,
       paymentMode: body.paymentMode,
+      recipientAddress: body.recipientAddress || "",
       shops: body.shops,
     });
     return NextResponse.json({ ok: true, state });

@@ -44,6 +44,7 @@ const initialState: StoreState = {
   storeName: "ArcTable Store",
   exchangeRateJpyPerUsdc: INITIAL_EXCHANGE_RATE,
   paymentMode: "demo",
+  recipientAddress: "",
   shops: defaultShops,
   customers: [],
   payments: [],
@@ -218,6 +219,18 @@ function normalizeState(parsed: Partial<StoreState>): StoreState {
       })
     : [];
 
+  const shops =
+    Array.isArray(parsed.shops) && parsed.shops.length > 0
+      ? parsed.shops.map((shop) => ({
+          ...shop,
+          imageUrl: typeof shop.imageUrl === "string" ? shop.imageUrl : "",
+        }))
+      : defaultShops;
+  const migratedRecipientAddress =
+    typeof parsed.recipientAddress === "string" && parsed.recipientAddress
+      ? parsed.recipientAddress
+      : shops.find((shop) => isAddressLike(shop.recipientAddress))?.recipientAddress || "";
+
   return {
     storeName: parsed.storeName && parsed.storeName !== "ArcTable Demo" ? parsed.storeName : initialState.storeName,
     exchangeRateJpyPerUsdc:
@@ -225,13 +238,8 @@ function normalizeState(parsed: Partial<StoreState>): StoreState {
         ? parsed.exchangeRateJpyPerUsdc
         : initialState.exchangeRateJpyPerUsdc,
     paymentMode: parsed.paymentMode === "arc-mainnet" ? "arc-mainnet" : "demo",
-    shops:
-      Array.isArray(parsed.shops) && parsed.shops.length > 0
-        ? parsed.shops.map((shop) => ({
-            ...shop,
-            imageUrl: typeof shop.imageUrl === "string" ? shop.imageUrl : "",
-          }))
-        : defaultShops,
+    recipientAddress: migratedRecipientAddress,
+    shops,
     customers,
     payments: Array.isArray(parsed.payments) ? parsed.payments.map(normalizePayment) : [],
   };
@@ -276,7 +284,7 @@ export async function ensureCustomer(storeId: string, customerId: string) {
 
 export async function updateSettings(
   storeId: string,
-  nextSettings: Pick<StoreState, "storeName" | "exchangeRateJpyPerUsdc" | "paymentMode" | "shops">,
+  nextSettings: Pick<StoreState, "storeName" | "exchangeRateJpyPerUsdc" | "paymentMode" | "recipientAddress" | "shops">,
 ) {
   const normalizedStoreId = normalizeStoreId(storeId);
   const state = await readState(normalizedStoreId);
@@ -285,6 +293,7 @@ export async function updateSettings(
     storeName: nextSettings.storeName,
     exchangeRateJpyPerUsdc: Math.max(1, nextSettings.exchangeRateJpyPerUsdc),
     paymentMode: nextSettings.paymentMode,
+    recipientAddress: nextSettings.recipientAddress || "",
     shops: nextSettings.shops.length > 0 ? nextSettings.shops : state.shops,
   };
 
@@ -328,7 +337,7 @@ export async function recordPurchase(storeId: string, customerId: string, shopId
     createdAt: new Date().toISOString(),
     mode: chainData.mode || state.paymentMode,
     status: chainData.status || "ordered",
-    recipientAddress: shop.recipientAddress,
+    recipientAddress: state.recipientAddress,
     payerAddress: chainData.payerAddress,
     transactionHash: chainData.transactionHash,
     blockNumber: chainData.blockNumber,
@@ -360,7 +369,7 @@ export async function createOnchainOrder(
     return { ok: false as const, reason: "not_found", state };
   }
 
-  if (!isAddressLike(shop.recipientAddress)) {
+  if (!isAddressLike(state.recipientAddress)) {
     return { ok: false as const, reason: "recipient_missing", state };
   }
 
@@ -384,7 +393,7 @@ export async function createOnchainOrder(
     createdAt: now,
     mode: "arc-mainnet",
     status: "pending_wallet",
-    recipientAddress: shop.recipientAddress,
+    recipientAddress: state.recipientAddress,
     payerAddress,
   };
 
