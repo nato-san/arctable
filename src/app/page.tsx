@@ -16,10 +16,10 @@ const copy = {
   en: {
     back: "Back",
     settings: "Settings",
-    createTitle: "Launch a table ordering demo",
-    createDemo: "Create Store Demo",
+    createTitle: "Set up table ordering with Arc payments",
+    createDemo: "Create Store",
     setupTitle: "Setup",
-    setupStep1: "1. Create a store demo URL",
+    setupStep1: "1. Create a store workspace",
     setupStep2: "2. Configure menu items and payout wallet",
     setupStep3: "3. Use table-specific QR URLs",
     storeId: "Store ID",
@@ -27,7 +27,7 @@ const copy = {
     merchantView: "Merchant View",
     settlementToken: "Settlement token",
     payAfterServed: "Pay with Arc USDC after service",
-    demoMode: "Demo mode",
+    demoMode: "Test checkout",
     customerNotice: "Payment is requested after the order is served.",
     walletTitle: "USDC wallet",
     connectWallet: "Connect wallet",
@@ -52,7 +52,7 @@ const copy = {
     notSet: "Not set",
     setRecipient: "Set a payout wallet before enabling on-chain orders.",
     noOrders: "No orders yet",
-    storeName: "Store demo name",
+    storeName: "Store name",
     paymentMode: "Payment mode",
     selected: "Selected",
     arcModeHelp: "With Arc USDC, the customer pays from their wallet on Arc Mainnet after the order is served.",
@@ -72,10 +72,10 @@ const copy = {
     resetTitle: "Reset orders",
     resetHelp: "Keep menu settings, and clear orders and payment history.",
     resetOrders: "Reset orders and history",
-    manageTitle: "Store demo management",
-    manageHelp: "Return to the start screen to create another store demo, or delete this one.",
+    manageTitle: "Store workspace",
+    manageHelp: "Return to the start screen to create another store workspace, or delete this one.",
     backTop: "Back to start",
-    deleteDemo: "Delete this store demo",
+    deleteDemo: "Delete this store",
     confirmOrderTitle: "Order with USDC?",
     payAfterServedNote: "Payment is made with Arc USDC after the item is served.",
     cancel: "Cancel",
@@ -104,10 +104,10 @@ const copy = {
     saveFailed: "Could not save settings",
     resetting: "Resetting orders and history",
     resetFailed: "Could not reset",
-    deleteConfirm: "Delete this store demo? Orders and sales records will also be deleted.",
-    deleting: "Deleting store demo",
-    deleteFailed: "Could not delete store demo",
-    creating: "Creating a new store demo",
+    deleteConfirm: "Delete this store? Orders and sales records will also be deleted.",
+    deleting: "Deleting store",
+    deleteFailed: "Could not delete store",
+    creating: "Creating a new store",
     statusCustomerConfirmed: "Receipt confirmed",
     statusRecorded: "Ordered",
     statusPendingWallet: "Wallet pending",
@@ -119,10 +119,10 @@ const copy = {
   ja: {
     back: "戻る",
     settings: "設定",
-    createTitle: "テーブルオーダー店舗デモを開始",
-    createDemo: "店舗デモを作成",
+    createTitle: "Arc決済対応のテーブルオーダーを設定",
+    createDemo: "店舗を作成",
     setupTitle: "セットアップ",
-    setupStep1: "1. 店舗デモURLを作成",
+    setupStep1: "1. 店舗ワークスペースを作成",
     setupStep2: "2. メニューと受取ウォレットを設定",
     setupStep3: "3. テーブル別QR URLを利用",
     storeId: "店舗ID",
@@ -130,7 +130,7 @@ const copy = {
     merchantView: "店舗画面",
     settlementToken: "決済トークン",
     payAfterServed: "提供後にArc USDCで支払い",
-    demoMode: "デモモード",
+    demoMode: "テスト会計",
     customerNotice: "商品提供後に会計します。",
     walletTitle: "USDCウォレット",
     connectWallet: "ウォレット接続",
@@ -155,7 +155,7 @@ const copy = {
     notSet: "未設定",
     setRecipient: "オンチェーン注文を有効にする前に受取ウォレットを設定してください。",
     noOrders: "まだ注文はありません",
-    storeName: "店舗デモ名",
+    storeName: "店舗名",
     paymentMode: "支払いモード",
     selected: "選択中",
     arcModeHelp: "Arc USDCでは、商品提供後にお客様のウォレットからArc Mainnetで支払います。",
@@ -175,10 +175,10 @@ const copy = {
     resetTitle: "注文リセット",
     resetHelp: "メニュー設定を残し、注文と決済履歴を削除します。",
     resetOrders: "注文と履歴をリセット",
-    manageTitle: "店舗デモ管理",
-    manageHelp: "開始画面へ戻って別の店舗デモを作成するか、このデモを削除できます。",
+    manageTitle: "店舗ワークスペース",
+    manageHelp: "開始画面へ戻って別の店舗を作成するか、この店舗を削除できます。",
     backTop: "開始画面へ戻る",
-    deleteDemo: "この店舗デモを削除",
+    deleteDemo: "この店舗を削除",
     confirmOrderTitle: "USDCで注文しますか？",
     payAfterServedNote: "支払いは商品提供後にArc USDCで行います。",
     cancel: "キャンセル",
@@ -207,10 +207,10 @@ const copy = {
     saveFailed: "設定を保存できません",
     resetting: "注文と履歴をリセット中",
     resetFailed: "リセットできません",
-    deleteConfirm: "この店舗デモを削除しますか？注文や売上の記録も削除されます。",
-    deleting: "店舗デモを削除中",
-    deleteFailed: "店舗デモを削除できません",
-    creating: "新しい店舗デモを作成中",
+    deleteConfirm: "この店舗を削除しますか？注文や売上の記録も削除されます。",
+    deleting: "店舗を削除中",
+    deleteFailed: "店舗を削除できません",
+    creating: "新しい店舗を作成中",
     statusCustomerConfirmed: "受取確認済み",
     statusRecorded: "注文済み",
     statusPendingWallet: "ウォレット確認待ち",
@@ -256,7 +256,7 @@ const fallbackShops: Shop[] = [
 ];
 
 const initialState: StoreState = {
-  storeName: "ArcTable Demo",
+  storeName: "ArcTable Store",
   exchangeRateJpyPerUsdc: INITIAL_EXCHANGE_RATE,
   paymentMode: "demo",
   shops: fallbackShops,
@@ -856,10 +856,10 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-dvh bg-[#fff8e8] text-[#20140c]">
+    <main className="min-h-dvh bg-[#f5f7f6] text-[#17201d]">
       <div className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col">
         {screen !== "home" ? (
-          <header className="sticky top-0 z-20 border-b border-[#ead7aa] bg-[#fff8e8]/95 px-4 py-3 backdrop-blur">
+          <header className="sticky top-0 z-20 border-b border-[#d9e3df] bg-[#f5f7f6]/95 px-4 py-3 backdrop-blur">
             <div className="flex items-center justify-between gap-3">
               <button
                 className="touch-button small-button"
@@ -869,8 +869,8 @@ export default function Home() {
                 {t.back}
               </button>
               <div className="text-center">
-                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#96631d]">ArcTable</p>
-                <p className="max-w-[13rem] truncate text-lg font-black sm:max-w-none">{store.storeName}</p>
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#0f6b57]">ArcTable</p>
+                <p className="max-w-[13rem] truncate text-lg font-bold sm:max-w-none">{store.storeName}</p>
               </div>
               {screen === "merchant" ? (
                 <div className="flex items-center gap-2">
@@ -962,14 +962,14 @@ export default function Home() {
 
       {confirmShop ? (
         <div className="fixed inset-0 z-30 grid place-items-center bg-black/45 px-4">
-          <section className="w-full max-w-sm rounded-[24px] bg-white p-5 text-center shadow-2xl">
-            <div className="text-6xl">{confirmShop.emoji}</div>
-            <h2 className="mt-3 text-2xl font-black">
+          <section className="w-full max-w-sm rounded-lg bg-white p-5 text-center shadow-2xl">
+            <div className="mx-auto grid size-14 place-items-center rounded-md bg-[#eef4f1] text-2xl">{confirmShop.emoji}</div>
+            <h2 className="mt-3 text-2xl font-bold">
               {confirmShop.name} / {formatUsdc(calculateUsdcPrice(confirmShop.priceJpy, store.exchangeRateJpyPerUsdc))} USDC
             </h2>
-            <p className="mt-2 text-lg font-black text-[#20140c]">{t.confirmOrderTitle}</p>
+            <p className="mt-2 text-lg font-bold text-[#17201d]">{t.confirmOrderTitle}</p>
             {store.paymentMode === "arc-mainnet" ? (
-              <p className="mt-2 rounded-[14px] bg-[#d8f8c7] px-3 py-2 text-sm font-black text-[#32611f]">
+              <p className="mt-2 rounded-md bg-[#e7f4ef] px-3 py-2 text-sm font-bold text-[#0f6b57]">
                 {t.payAfterServedNote}
               </p>
             ) : null}
@@ -1017,26 +1017,26 @@ function HomeScreen({
       <section className="flex flex-1 flex-col px-5 py-8">
         <div className="mb-8">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-sm font-black uppercase tracking-[0.18em] text-[#9a3f2c]">ArcTable</p>
+            <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#0f6b57]">ArcTable</p>
             <LanguageToggle lang={lang} onChange={onLanguageChange} />
           </div>
-          <h1 className="mt-2 text-4xl font-black leading-tight text-[#25130a] sm:text-6xl">
+          <h1 className="mt-3 max-w-3xl text-4xl font-bold leading-tight text-[#17201d] sm:text-5xl">
             {t.createTitle}
           </h1>
         </div>
 
         <div className="grid flex-1 content-center gap-4">
           <a
-            className="role-button bg-[#ffdf63]"
-            href={`/?store=arctable-demo&screen=settings&lang=${lang}`}
+            className="role-button bg-white"
+            href={`/?screen=settings&lang=${lang}`}
             onPointerDown={onCreateStore}
           >
-            <span className="text-7xl">🍽️</span>
+            <span className="grid size-12 place-items-center rounded-md bg-[#0f6b57] text-xl text-white">＋</span>
             <span>{t.createDemo}</span>
           </a>
-          <div className="rounded-[24px] bg-white p-5 text-center shadow-sm">
-            <p className="text-lg font-black text-[#7b4b21]">{t.setupTitle}</p>
-            <div className="mt-3 grid gap-2 text-left text-base font-bold leading-7 text-[#6b4b2f]">
+          <div className="rounded-lg border border-[#d9e3df] bg-white p-5 shadow-sm">
+            <p className="text-lg font-bold text-[#17201d]">{t.setupTitle}</p>
+            <div className="mt-3 grid gap-2 text-left text-base font-medium leading-7 text-[#53625d]">
               <p>{t.setupStep1}</p>
               <p>{t.setupStep2}</p>
               <p>{t.setupStep3}</p>
@@ -1050,10 +1050,10 @@ function HomeScreen({
   return (
     <section className="flex flex-1 flex-col px-5 py-8">
       <div className="mb-8">
-        <p className="text-sm font-black uppercase tracking-[0.18em] text-[#9a3f2c]">ArcTable</p>
-        <h1 className="mt-2 text-4xl font-black leading-tight text-[#25130a] sm:text-6xl">{storeName}</h1>
+        <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#0f6b57]">ArcTable</p>
+        <h1 className="mt-2 text-4xl font-bold leading-tight text-[#17201d] sm:text-5xl">{storeName}</h1>
         {storeId ? (
-          <p className="mt-3 inline-block rounded-full bg-white px-4 py-2 text-sm font-black text-[#7b4b21]">
+          <p className="mt-3 inline-block rounded-md border border-[#d9e3df] bg-white px-4 py-2 text-sm font-bold text-[#53625d]">
             {t.storeId}: {storeId}
           </p>
         ) : null}
@@ -1061,19 +1061,19 @@ function HomeScreen({
 
       <div className="grid flex-1 content-center gap-4 sm:grid-cols-2">
         <a
-          className="role-button bg-[#ffdf63]"
+          className="role-button bg-white"
           href={`/?store=${storeId}&screen=customer&lang=${lang}`}
           onPointerDown={() => onNavigate("customer")}
         >
-          <span className="text-7xl">📱</span>
+          <span className="grid size-12 place-items-center rounded-md bg-[#e7f4ef] text-base font-bold text-[#0f6b57]">QR</span>
           <span>{t.customerView}</span>
         </a>
         <a
-          className="role-button bg-[#7bd7c6]"
+          className="role-button bg-[#17201d] text-white"
           href={`/?store=${storeId}&screen=merchant&lang=${lang}`}
           onPointerDown={() => onNavigate("merchant")}
         >
-          <span className="text-7xl">🏪</span>
+          <span className="grid size-12 place-items-center rounded-md bg-white/12 text-base font-bold text-white">POS</span>
           <span>{t.merchantView}</span>
         </a>
       </div>
@@ -1083,11 +1083,11 @@ function HomeScreen({
 
 function LanguageToggle({ lang, onChange }: { lang: Lang; onChange: (lang: Lang) => void }) {
   return (
-    <div className="grid grid-cols-2 overflow-hidden rounded-md border border-[#ead7aa] bg-white text-xs font-black">
+    <div className="grid grid-cols-2 overflow-hidden rounded-md border border-[#d9e3df] bg-white text-xs font-bold">
       {(["en", "ja"] as const).map((item) => (
         <button
           key={item}
-          className={`px-3 py-2 ${lang === item ? "bg-[#20140c] text-white" : "text-[#6b4b2f]"}`}
+          className={`px-3 py-2 ${lang === item ? "bg-[#17201d] text-white" : "text-[#53625d]"}`}
           type="button"
           onClick={() => onChange(item)}
         >
@@ -1137,60 +1137,60 @@ function CustomerScreen({
 }) {
   return (
     <section className="flex-1 px-4 py-5">
-      <div className="mb-4 rounded-[24px] bg-white p-4 text-center shadow-sm">
-        <p className="text-lg font-black text-[#8a3b1e]">Table {tableId}</p>
-        <p className="mt-2 text-sm font-black text-[#7b4b21]">
+      <div className="mb-4 rounded-lg border border-[#d9e3df] bg-white p-4 shadow-sm">
+        <p className="text-lg font-bold text-[#17201d]">Table {tableId}</p>
+        <p className="mt-2 text-sm font-medium text-[#53625d]">
           {paymentMode === "arc-mainnet" ? t.payAfterServed : t.demoMode}
         </p>
       </div>
 
       {paymentMode === "demo" ? (
-        <div className="rounded-[28px] bg-[#ffed9f] p-5 text-center shadow-sm">
-          <p className="text-base font-black text-[#8a3b1e]">{customer.name}</p>
-          <p className="text-xl font-black text-[#8a3b1e]">{t.customerNotice}</p>
+        <div className="rounded-lg border border-[#d9e3df] bg-white p-5 shadow-sm">
+          <p className="text-base font-bold text-[#17201d]">{customer.name}</p>
+          <p className="text-xl font-bold text-[#17201d]">{t.customerNotice}</p>
         </div>
       ) : (
-        <div className="rounded-[28px] bg-[#d8f8c7] p-5 text-center shadow-sm">
-          <p className="text-base font-black text-[#32611f]">{customer.name}</p>
-          <p className="text-xl font-black text-[#32611f]">{t.walletTitle}</p>
+        <div className="rounded-lg border border-[#b8d9cf] bg-[#e7f4ef] p-5 shadow-sm">
+          <p className="text-base font-bold text-[#0f6b57]">{customer.name}</p>
+          <p className="text-xl font-bold text-[#0f6b57]">{t.walletTitle}</p>
           {walletAddress ? (
             <>
-              <p className="mt-2 font-mono text-2xl font-black">{shortHash(walletAddress)}</p>
-              <p className="mt-1 text-4xl font-black">{walletBalanceUsdc === null ? "--" : formatUsdc(walletBalanceUsdc)} USDC</p>
+              <p className="mt-2 font-mono text-2xl font-bold">{shortHash(walletAddress)}</p>
+              <p className="mt-1 text-4xl font-bold">{walletBalanceUsdc === null ? "--" : formatUsdc(walletBalanceUsdc)} USDC</p>
             </>
           ) : (
-            <button className="touch-button buy-button mt-3 w-full text-xl" type="button" onClick={onConnectWallet}>
+            <button className="touch-button buy-button mt-3 w-full text-lg" type="button" onClick={onConnectWallet}>
               {t.connectWallet}
             </button>
           )}
-          <p className="mt-2 text-sm font-bold text-[#47713a]">{t.connectedWallet}</p>
-          {walletMessage ? <p className="mt-2 text-sm font-black text-[#32611f]">{walletMessage}</p> : null}
+          <p className="mt-2 text-sm font-medium text-[#35685c]">{t.connectedWallet}</p>
+          {walletMessage ? <p className="mt-2 text-sm font-bold text-[#0f6b57]">{walletMessage}</p> : null}
         </div>
       )}
 
       {statusMessage ? (
-        <p className="mt-3 rounded-[18px] bg-white px-4 py-3 text-center text-base font-black text-[#7b4b21]">
+        <p className="mt-3 rounded-lg border border-[#d9e3df] bg-white px-4 py-3 text-center text-base font-bold text-[#53625d]">
           {statusMessage}
         </p>
       ) : null}
 
       {activeOrder ? (
-        <section className="mt-4 rounded-[28px] bg-white p-5 shadow-sm">
-          <p className="text-sm font-black uppercase tracking-[0.16em] text-[#8a3b1e]">Current Order</p>
+        <section className="mt-4 rounded-lg border border-[#d9e3df] bg-white p-5 shadow-sm">
+          <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#0f6b57]">Current Order</p>
           <div className="mt-3 flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-2xl font-black">{activeOrder.itemName}</h2>
-              <p className="mt-1 text-sm font-bold text-[#755032]">
+              <h2 className="text-2xl font-bold">{activeOrder.itemName}</h2>
+              <p className="mt-1 text-sm font-medium text-[#53625d]">
                 Order {activeOrder.id.slice(-8)} / {formatUsdc(activeOrder.priceUsdc)} USDC
               </p>
             </div>
-            <span className="rounded-full bg-[#fff0c2] px-3 py-2 text-sm font-black text-[#7b4b21]">
+            <span className="rounded-full bg-[#eef4f1] px-3 py-2 text-sm font-bold text-[#53625d]">
               {statusLabel(activeOrder.status, t)}
             </span>
           </div>
           {activeOrder.status === "served" ? (
             <button
-              className="touch-button buy-button mt-4 w-full text-xl"
+              className="touch-button buy-button mt-4 w-full text-lg"
               type="button"
               onClick={() => onConfirmServedOrder(activeOrder)}
             >
@@ -1198,7 +1198,7 @@ function CustomerScreen({
             </button>
           ) : null}
           {activeOrder.status === "paid" ? (
-            <p className="mt-4 rounded-[18px] bg-[#d8f8c7] px-4 py-3 text-center text-base font-black text-[#32611f]">
+            <p className="mt-4 rounded-lg bg-[#e7f4ef] px-4 py-3 text-center text-base font-bold text-[#0f6b57]">
               {t.paidSynced}
             </p>
           ) : null}
@@ -1206,12 +1206,11 @@ function CustomerScreen({
       ) : null}
 
       {successItemName ? (
-        <section className="mt-4 rounded-[28px] bg-[#d8f8c7] p-5 text-center shadow-sm">
-          <p className="text-5xl">🎉</p>
-          <h2 className="mt-2 text-3xl font-black">
+        <section className="mt-4 rounded-lg border border-[#b8d9cf] bg-[#e7f4ef] p-5 text-center shadow-sm">
+          <h2 className="text-2xl font-bold">
             {successPayment?.status === "completed" || successPayment?.status === "paid" ? t.orderComplete : t.orderSubmitted}
           </h2>
-          <p className="mt-2 text-xl font-bold">
+          <p className="mt-2 text-lg font-medium">
             {successPayment?.status === "completed" ? (
               t.thankYou
             ) : (
@@ -1219,7 +1218,7 @@ function CustomerScreen({
             )}
           </p>
           {successPayment ? (
-            <div className="mt-3 rounded-[18px] bg-white/70 px-3 py-3 text-sm font-black text-[#32611f]">
+            <div className="mt-3 rounded-lg bg-white/80 px-3 py-3 text-sm font-bold text-[#0f6b57]">
               <p>{t.orderId} {successPayment.id.slice(-8)}</p>
               <p>
                 {successPayment.itemName} / {formatUsdc(successPayment.priceUsdc)} USDC
@@ -1263,17 +1262,17 @@ function CustomerScreen({
           }
 
           return (
-            <article key={shop.id} className="rounded-[28px] border-4 border-white bg-white p-5 shadow-sm">
+            <article key={shop.id} className="rounded-lg border border-[#d9e3df] bg-white p-5 shadow-sm">
               <div className="flex items-center gap-4">
-                <div className="grid size-20 place-items-center rounded-[24px] bg-[#fff0c2] text-5xl">{shop.emoji}</div>
+                <div className="grid size-12 place-items-center rounded-md bg-[#eef4f1] text-2xl">{shop.emoji}</div>
                 <div>
-                  <h2 className="text-3xl font-black">{shop.name}</h2>
-                  <p className="text-xl font-bold text-[#755032]">{shop.description}</p>
+                  <h2 className="text-2xl font-bold">{shop.name}</h2>
+                  <p className="text-base font-medium text-[#53625d]">{shop.description}</p>
                 </div>
               </div>
-              <p className="mt-1 text-center text-5xl font-black text-[#c33d2d]">{formatUsdc(priceUsdc)} USDC</p>
+              <p className="mt-4 text-3xl font-bold text-[#17201d]">{formatUsdc(priceUsdc)} USDC</p>
               <button
-                className="touch-button buy-button mt-4 w-full text-3xl"
+                className="touch-button buy-button mt-4 w-full text-lg"
                 type="button"
                 disabled={!canBuy}
                 onClick={handleShopButton}
@@ -1339,7 +1338,7 @@ function MerchantScreen({
         <div className="mt-2 flex items-end justify-between gap-4">
           <p className="text-4xl font-black">{formatUsdc(total)} USDC</p>
           <p className="pb-1 text-sm font-bold text-white/70">
-            {paymentMode === "arc-mainnet" ? "Arc Mainnet / On-chain" : "Arc Mainnet / Demo"}
+            {paymentMode === "arc-mainnet" ? "Arc Mainnet / On-chain" : "Test checkout"}
           </p>
         </div>
       </div>
@@ -1392,7 +1391,7 @@ function MerchantScreen({
       </div>
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <Metric label={t.network} value={paymentMode === "arc-mainnet" ? "Arc Mainnet / On-chain" : "Arc Mainnet / Demo"} />
+        <Metric label={t.network} value={paymentMode === "arc-mainnet" ? "Arc Mainnet / On-chain" : "Test checkout"} />
         <Metric
           label={t.receive}
           value={selectedStats.shop.recipientAddress ? shortHash(selectedStats.shop.recipientAddress) : t.notSet}
@@ -1555,7 +1554,7 @@ function SettingsScreen({
   function addDraftShop() {
     const shop: Shop = {
       id: createId("shop"),
-      emoji: "🍽️",
+      emoji: "•",
       name: "New Item",
       description: "One serving",
       priceJpy: usdcToStoredPrice(1, draft.exchangeRateJpyPerUsdc),
@@ -1584,12 +1583,12 @@ function SettingsScreen({
   return (
     <section className="flex-1 px-4 py-5">
       {statusMessage ? (
-        <p className="mb-4 rounded-lg bg-[#fff0c2] px-4 py-3 text-center text-sm font-black text-[#7b4b21]">
+        <p className="mb-4 rounded-lg border border-[#d9e3df] bg-white px-4 py-3 text-center text-sm font-bold text-[#53625d]">
           {statusMessage}
         </p>
       ) : null}
 
-      <div className="rounded-lg bg-white p-4 shadow-sm">
+      <div className="rounded-lg border border-[#d9e3df] bg-white p-4 shadow-sm">
         <label className="field-label" htmlFor="store-name">
           {t.storeName}
         </label>
@@ -1601,14 +1600,14 @@ function SettingsScreen({
         />
       </div>
 
-      <div className="mt-4 rounded-lg bg-white p-4 shadow-sm">
+      <div className="mt-4 rounded-lg border border-[#d9e3df] bg-white p-4 shadow-sm">
         <p className="field-label">{t.settlementToken}</p>
         <div className="mt-2 grid grid-cols-2 gap-2">
           <button
-            className={`touch-button border-4 text-base ${
+            className={`touch-button border text-base ${
               draft.paymentMode === "demo"
-                ? "border-[#d84630] bg-[#ffdf63] text-[#23190b] shadow-[0_6px_0_rgba(91,52,20,0.18)]"
-                : "border-[#ead7aa] bg-[#f7efe2] text-[#6b4b2f]"
+                ? "border-[#0f6b57] bg-[#e7f4ef] text-[#0f6b57]"
+                : "border-[#d9e3df] bg-white text-[#53625d]"
             }`}
             type="button"
             aria-pressed={draft.paymentMode === "demo"}
@@ -1618,10 +1617,10 @@ function SettingsScreen({
             {draft.paymentMode === "demo" ? <span className="mt-1 block text-xs">{t.selected}</span> : null}
           </button>
           <button
-            className={`touch-button border-4 text-base ${
+            className={`touch-button border text-base ${
               draft.paymentMode === "arc-mainnet"
-                ? "border-[#d84630] bg-[#7bd7c6] text-[#12352f] shadow-[0_6px_0_rgba(91,52,20,0.18)]"
-                : "border-[#ead7aa] bg-[#f7efe2] text-[#6b4b2f]"
+                ? "border-[#0f6b57] bg-[#e7f4ef] text-[#0f6b57]"
+                : "border-[#d9e3df] bg-white text-[#53625d]"
             }`}
             type="button"
             aria-pressed={draft.paymentMode === "arc-mainnet"}
@@ -1631,18 +1630,18 @@ function SettingsScreen({
             {draft.paymentMode === "arc-mainnet" ? <span className="mt-1 block text-xs">{t.selected}</span> : null}
           </button>
         </div>
-        <p className="mt-3 text-sm font-bold leading-6 text-[#6b4b2f]">
+        <p className="mt-3 text-sm font-medium leading-6 text-[#53625d]">
           {t.arcModeHelp}
         </p>
       </div>
 
       <div className="mt-4 flex items-center justify-between gap-3">
-        <h2 className="text-2xl font-black">{t.menu}</h2>
+        <h2 className="text-2xl font-bold">{t.menu}</h2>
       </div>
 
       <div className="mt-3 grid gap-4">
         {draft.shops.map((shop) => (
-          <article key={shop.id} className="rounded-lg bg-white p-4 shadow-sm">
+          <article key={shop.id} className="rounded-lg border border-[#d9e3df] bg-white p-4 shadow-sm">
             <div className="grid grid-cols-[4.5rem_1fr] gap-3">
               <div>
                 <label className="field-label" htmlFor={`${shop.id}-emoji`}>
@@ -1720,13 +1719,13 @@ function SettingsScreen({
                 onChange={(event) => updateDraftShop(shop.id, { recipientAddress: event.target.value.trim() })}
               />
               {draft.paymentMode === "arc-mainnet" && !isAddressLike(shop.recipientAddress) ? (
-                <p className="mt-2 text-sm font-black text-[#b62e22]">{t.recipientRequired}</p>
+                <p className="mt-2 text-sm font-bold text-[#b62e22]">{t.recipientRequired}</p>
               ) : null}
             </div>
 
             <div className="mt-4 flex justify-end">
               <button
-                className="rounded-md border border-[#d84630] px-4 py-3 text-sm font-black text-[#b62e22] disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-md border border-[#d9e3df] px-4 py-3 text-sm font-bold text-[#b62e22] disabled:cursor-not-allowed disabled:opacity-40"
                 type="button"
                 disabled={draft.shops.length <= 1}
                 onClick={() => deleteDraftShop(shop.id)}
@@ -1736,18 +1735,18 @@ function SettingsScreen({
             </div>
           </article>
         ))}
-        <button className="touch-button border-4 border-white bg-[#ffdf63] text-xl shadow-[0_8px_0_rgba(91,52,20,0.14)]" type="button" onClick={addDraftShop}>
+        <button className="touch-button border border-[#d9e3df] bg-white text-lg shadow-sm" type="button" onClick={addDraftShop}>
           {t.addMenu}
         </button>
       </div>
 
-      <section className="mt-5 rounded-lg border border-[#ead7aa] bg-[#fff0c2] p-4">
-        <h2 className="text-lg font-black">{t.save}</h2>
-        <p className="mt-2 text-sm font-bold leading-6 text-[#6b4b2f]">
+      <section className="mt-5 rounded-lg border border-[#d9e3df] bg-white p-4 shadow-sm">
+        <h2 className="text-lg font-bold">{t.save}</h2>
+        <p className="mt-2 text-sm font-medium leading-6 text-[#53625d]">
           {t.saveHelp}
         </p>
         <button
-          className="touch-button buy-button mt-4 w-full text-xl"
+          className="touch-button buy-button mt-4 w-full text-lg"
           type="button"
           onClick={() => void onSaveSettings(draft)}
         >
@@ -1755,9 +1754,9 @@ function SettingsScreen({
         </button>
       </section>
 
-      <section className="mt-5 rounded-lg border border-[#ead7aa] bg-[#fff0c2] p-4">
-        <h2 className="text-lg font-black">{t.resetTitle}</h2>
-        <p className="mt-2 text-sm font-bold leading-6 text-[#6b4b2f]">
+      <section className="mt-5 rounded-lg border border-[#d9e3df] bg-white p-4 shadow-sm">
+        <h2 className="text-lg font-bold">{t.resetTitle}</h2>
+        <p className="mt-2 text-sm font-medium leading-6 text-[#53625d]">
           {t.resetHelp}
         </p>
         <button className="touch-button cancel-button mt-4" type="button" onClick={onResetDemo}>
@@ -1765,9 +1764,9 @@ function SettingsScreen({
         </button>
       </section>
 
-      <section className="mt-5 rounded-lg border border-[#ead7aa] bg-white p-4 shadow-sm">
-        <h2 className="text-lg font-black">{t.manageTitle}</h2>
-        <p className="mt-2 text-sm font-bold leading-6 text-[#6b4b2f]">
+      <section className="mt-5 rounded-lg border border-[#d9e3df] bg-white p-4 shadow-sm">
+        <h2 className="text-lg font-bold">{t.manageTitle}</h2>
+        <p className="mt-2 text-sm font-medium leading-6 text-[#53625d]">
           {t.manageHelp}
         </p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -1775,7 +1774,7 @@ function SettingsScreen({
             {t.backTop}
           </button>
           <button
-            className="touch-button border-2 border-[#d84630] bg-white text-[#b62e22]"
+            className="touch-button border border-[#d9e3df] bg-white text-[#b62e22]"
             type="button"
             onClick={onDeleteStore}
           >

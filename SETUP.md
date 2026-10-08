@@ -27,17 +27,17 @@ For the same Mac:
 http://127.0.0.1:3000
 ```
 
-For a phone demo, open the app from the Mac's local network address while both devices are on the same Wi-Fi.
+For phone testing, open the app from the Mac's local network address while both devices are on the same Wi-Fi.
 
-## Shared Demo Data
+## Shared Store Data
 
-The shared API lives at `src/app/api/store`. The current MVP uses the `store` ID as the shared restaurant demo ID.
+The shared API lives at `src/app/api/store`. The current MVP uses the `store` ID as the shared restaurant workspace ID.
 
 ```text
-https://example.vercel.app/?store=demo-store&table=1
+https://example.vercel.app/?store=main-store&table=1
 ```
 
-Devices that open the same `store` ID participate in the same restaurant demo. The `table` value is saved as the table number for customer orders.
+Devices that open the same `store` ID participate in the same restaurant workspace. The `table` value is saved as the table number for customer orders.
 
 Local file storage:
 
