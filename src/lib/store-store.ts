@@ -1,10 +1,11 @@
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { createPublicClient, formatEther, getAddress, http, parseEther, type Hash } from "viem";
 import { arcMainnet } from "./arc-mainnet";
 import type { Customer, StoreState, PaymentMode, PaymentRecord, Shop } from "./store-types";
 
-const DATA_DIR = path.join(process.cwd(), "data");
+const DATA_DIR = process.env.VERCEL ? path.join(os.tmpdir(), "arctable-data") : path.join(process.cwd(), "data");
 const STORES_DIR = path.join(DATA_DIR, "stores");
 const DEFAULT_STORE_ID = "demo-store";
 const INITIAL_BALANCE = 50;
