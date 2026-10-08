@@ -1074,7 +1074,7 @@ function HomeScreen({
           onPointerDown={() => onNavigate("merchant")}
         >
           <span className="grid size-12 place-items-center rounded-md bg-white/12 text-base font-bold text-white">POS</span>
-          <span>{t.merchantView}</span>
+          <span className="text-white">{t.merchantView}</span>
         </a>
       </div>
     </section>

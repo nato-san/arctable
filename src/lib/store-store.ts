@@ -38,7 +38,7 @@ export const defaultShops: Shop[] = [
 ];
 
 const initialState: StoreState = {
-  storeName: "ArcTable Demo",
+  storeName: "ArcTable Store",
   exchangeRateJpyPerUsdc: INITIAL_EXCHANGE_RATE,
   paymentMode: "demo",
   shops: defaultShops,
@@ -216,7 +216,7 @@ function normalizeState(parsed: Partial<StoreState>): StoreState {
     : [];
 
   return {
-    storeName: parsed.storeName || initialState.storeName,
+    storeName: parsed.storeName && parsed.storeName !== "ArcTable Demo" ? parsed.storeName : initialState.storeName,
     exchangeRateJpyPerUsdc:
       typeof parsed.exchangeRateJpyPerUsdc === "number" && parsed.exchangeRateJpyPerUsdc > 0
         ? parsed.exchangeRateJpyPerUsdc
