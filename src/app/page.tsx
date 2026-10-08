@@ -60,6 +60,7 @@ const copy = {
     emoji: "Icon",
     itemName: "Item name",
     description: "Description",
+    photoUrl: "Photo URL",
     tokenPrice: "USDC price",
     buttonText: "Button text",
     recipient: "Arc USDC payout address",
@@ -163,6 +164,7 @@ const copy = {
     emoji: "アイコン",
     itemName: "商品名",
     description: "説明",
+    photoUrl: "写真URL",
     tokenPrice: "USDC価格",
     buttonText: "ボタン文言",
     recipient: "Arc USDC受取アドレス",
@@ -234,6 +236,7 @@ const fallbackShops: Shop[] = [
     emoji: "🍔",
     name: "Burger",
     description: "Classic table burger",
+    imageUrl: "",
     priceJpy: 800,
     actionLabel: "Order",
   },
@@ -242,6 +245,7 @@ const fallbackShops: Shop[] = [
     emoji: "☕",
     name: "Coffee",
     description: "Hot drip coffee",
+    imageUrl: "",
     priceJpy: 300,
     actionLabel: "Order",
   },
@@ -250,6 +254,7 @@ const fallbackShops: Shop[] = [
     emoji: "🍰",
     name: "Cake",
     description: "Today's dessert",
+    imageUrl: "",
     priceJpy: 500,
     actionLabel: "Order",
   },
@@ -1263,6 +1268,14 @@ function CustomerScreen({
 
           return (
             <article key={shop.id} className="rounded-lg border border-[#d9e3df] bg-white p-5 shadow-sm">
+              {shop.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  alt={shop.name}
+                  className="mb-4 aspect-[4/3] w-full rounded-md object-cover"
+                  src={shop.imageUrl}
+                />
+              ) : null}
               <div className="flex items-center gap-4">
                 <div className="grid size-12 place-items-center rounded-md bg-[#eef4f1] text-2xl">{shop.emoji}</div>
                 <div>
@@ -1557,6 +1570,7 @@ function SettingsScreen({
       emoji: "•",
       name: "New Item",
       description: "One serving",
+      imageUrl: "",
       priceJpy: usdcToStoredPrice(1, draft.exchangeRateJpyPerUsdc),
       actionLabel: "Order",
     };
@@ -1668,14 +1682,34 @@ function SettingsScreen({
               </div>
             </div>
 
-            <div className="mt-3 grid gap-3 sm:grid-cols-3">
-              <div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <label className="field-label" htmlFor={`${shop.id}-image-url`}>
+                  {t.photoUrl}
+                </label>
+                <input
+                  id={`${shop.id}-image-url`}
+                  className="text-field mt-2"
+                  placeholder="https://example.com/menu-photo.jpg"
+                  value={shop.imageUrl || ""}
+                  onChange={(event) => updateDraftShop(shop.id, { imageUrl: event.target.value.trim() })}
+                />
+                {shop.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    alt={shop.name}
+                    className="mt-3 aspect-[4/3] w-full max-w-sm rounded-md border border-[#d9e3df] object-cover"
+                    src={shop.imageUrl}
+                  />
+                ) : null}
+              </div>
+              <div className="sm:col-span-2">
                 <label className="field-label" htmlFor={`${shop.id}-description`}>
                   {t.description}
                 </label>
-                <input
+                <textarea
                   id={`${shop.id}-description`}
-                  className="text-field mt-2"
+                  className="text-field mt-2 min-h-24 resize-y leading-6"
                   value={shop.description}
                   onChange={(event) => updateDraftShop(shop.id, { description: event.target.value })}
                 />

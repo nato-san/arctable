@@ -16,6 +16,7 @@ export const defaultShops: Shop[] = [
     emoji: "🍔",
     name: "Burger",
     description: "Classic table burger",
+    imageUrl: "",
     priceJpy: 800,
     actionLabel: "Order",
   },
@@ -24,6 +25,7 @@ export const defaultShops: Shop[] = [
     emoji: "☕",
     name: "Coffee",
     description: "Hot drip coffee",
+    imageUrl: "",
     priceJpy: 300,
     actionLabel: "Order",
   },
@@ -32,6 +34,7 @@ export const defaultShops: Shop[] = [
     emoji: "🍰",
     name: "Cake",
     description: "Today's dessert",
+    imageUrl: "",
     priceJpy: 500,
     actionLabel: "Order",
   },
@@ -222,7 +225,13 @@ function normalizeState(parsed: Partial<StoreState>): StoreState {
         ? parsed.exchangeRateJpyPerUsdc
         : initialState.exchangeRateJpyPerUsdc,
     paymentMode: parsed.paymentMode === "arc-mainnet" ? "arc-mainnet" : "demo",
-    shops: Array.isArray(parsed.shops) && parsed.shops.length > 0 ? parsed.shops : defaultShops,
+    shops:
+      Array.isArray(parsed.shops) && parsed.shops.length > 0
+        ? parsed.shops.map((shop) => ({
+            ...shop,
+            imageUrl: typeof shop.imageUrl === "string" ? shop.imageUrl : "",
+          }))
+        : defaultShops,
     customers,
     payments: Array.isArray(parsed.payments) ? parsed.payments.map(normalizePayment) : [],
   };

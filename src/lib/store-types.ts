@@ -3,6 +3,7 @@ export type Shop = {
   emoji: string;
   name: string;
   description: string;
+  imageUrl?: string;
   priceJpy: number;
   actionLabel: string;
   recipientAddress?: string;
