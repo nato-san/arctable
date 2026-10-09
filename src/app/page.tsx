@@ -236,7 +236,7 @@ const fallbackShops: Shop[] = [
     emoji: "🍔",
     name: "Burger",
     description: "Classic table burger",
-    imageUrl: "",
+    imageUrl: "/menu/burger.jpg",
     priceJpy: 800,
     actionLabel: "Order",
   },
@@ -245,7 +245,7 @@ const fallbackShops: Shop[] = [
     emoji: "☕",
     name: "Coffee",
     description: "Hot drip coffee",
-    imageUrl: "",
+    imageUrl: "/menu/coffee.jpg",
     priceJpy: 300,
     actionLabel: "Order",
   },
@@ -254,7 +254,7 @@ const fallbackShops: Shop[] = [
     emoji: "🍰",
     name: "Cake",
     description: "Today's dessert",
-    imageUrl: "",
+    imageUrl: "/menu/cake.jpg",
     priceJpy: 500,
     actionLabel: "Order",
   },
@@ -1280,6 +1280,9 @@ function CustomerScreen({
                 <img
                   alt={shop.name}
                   className="mb-4 aspect-[4/3] w-full rounded-md object-cover"
+                  onError={(event) => {
+                    event.currentTarget.style.display = "none";
+                  }}
                   src={shop.imageUrl}
                 />
               ) : null}
@@ -1724,6 +1727,9 @@ function SettingsScreen({
                   <img
                     alt={shop.name}
                     className="mt-3 aspect-[4/3] w-full max-w-sm rounded-md border border-[#d9e3df] object-cover"
+                    onError={(event) => {
+                      event.currentTarget.style.display = "none";
+                    }}
                     src={shop.imageUrl}
                   />
                 ) : null}
