@@ -43,6 +43,7 @@ export const defaultShops: Shop[] = [
 
 const initialState: StoreState = {
   storeName: "ArcTable Store",
+  adminToken: "",
   exchangeRateJpyPerUsdc: INITIAL_EXCHANGE_RATE,
   paymentMode: "demo",
   recipientAddress: "",
@@ -241,6 +242,7 @@ function normalizeState(parsed: Partial<StoreState>): StoreState {
 
   return {
     storeName: parsed.storeName && parsed.storeName !== "ArcTable Demo" ? parsed.storeName : initialState.storeName,
+    adminToken: typeof parsed.adminToken === "string" ? parsed.adminToken : "",
     exchangeRateJpyPerUsdc:
       typeof parsed.exchangeRateJpyPerUsdc === "number" && parsed.exchangeRateJpyPerUsdc > 0
         ? parsed.exchangeRateJpyPerUsdc
@@ -296,13 +298,17 @@ export async function ensureCustomer(storeId: string, customerId: string) {
 
 export async function updateSettings(
   storeId: string,
-  nextSettings: Pick<StoreState, "storeName" | "exchangeRateJpyPerUsdc" | "paymentMode" | "recipientAddress" | "shops">,
+  nextSettings: Pick<
+    StoreState,
+    "storeName" | "adminToken" | "exchangeRateJpyPerUsdc" | "paymentMode" | "recipientAddress" | "shops"
+  >,
 ) {
   const normalizedStoreId = normalizeStoreId(storeId);
   const state = await readState(normalizedStoreId);
   const nextState: StoreState = {
     ...state,
     storeName: nextSettings.storeName,
+    adminToken: state.adminToken || nextSettings.adminToken || "",
     exchangeRateJpyPerUsdc: Math.max(1, nextSettings.exchangeRateJpyPerUsdc),
     paymentMode: nextSettings.paymentMode,
     recipientAddress: nextSettings.recipientAddress || "",

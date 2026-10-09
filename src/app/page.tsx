@@ -42,7 +42,14 @@ const copy = {
     ordering: "Ordering",
     order: "Order",
     tableOrderUrl: "Table Order URL",
+    managerUrl: "Private Manager URL",
     copiedUrl: "Copy URL",
+    copiedManagerUrl: "Copy manager URL",
+    saveManagerUrlTitle: "Save this private manager URL",
+    saveManagerUrlWarning:
+      "This app does not use accounts. If you lose this URL, you cannot return to this store dashboard.",
+    adminLocked: "Private manager URL is required to open this store dashboard.",
+    returnStore: "Return to saved store",
     newStore: "New Store",
     store: "STORE",
     todaySales: "TODAY SALES",
@@ -146,7 +153,14 @@ const copy = {
     ordering: "注文中",
     order: "注文する",
     tableOrderUrl: "テーブル注文URL",
+    managerUrl: "管理用URL",
     copiedUrl: "URLをコピー",
+    copiedManagerUrl: "管理用URLをコピー",
+    saveManagerUrlTitle: "この管理用URLを保存してください",
+    saveManagerUrlWarning:
+      "ログイン機能はないため、このURLを紛失すると店舗管理画面に戻れません。必ず安全な場所に保存してください。",
+    adminLocked: "この店舗の管理画面を開くには管理用URLが必要です。",
+    returnStore: "保存済み店舗に戻る",
     newStore: "新しい店舗",
     store: "店舗",
     todaySales: "本日の売上",
@@ -228,6 +242,7 @@ type Copy = { [Key in keyof typeof copy.en]: string };
 const INITIAL_EXCHANGE_RATE = 100;
 const CUSTOMER_STORAGE_KEY = "arctable-customer-id";
 const STORE_STORAGE_KEY = "arctable-restaurant-id";
+const ADMIN_TOKEN_STORAGE_KEY = "arctable-admin-token";
 const LANGUAGE_STORAGE_KEY = "arctable-language";
 
 const fallbackShops: Shop[] = [
@@ -262,6 +277,7 @@ const fallbackShops: Shop[] = [
 
 const initialState: StoreState = {
   storeName: "ArcTable Store",
+  adminToken: "",
   exchangeRateJpyPerUsdc: INITIAL_EXCHANGE_RATE,
   paymentMode: "demo",
   recipientAddress: "",
@@ -296,13 +312,38 @@ function getStoreId() {
 
   const params = new URLSearchParams(window.location.search);
   const fromUrl = normalizeStoreId(params.get("store"));
-  const storeId = fromUrl;
+  const fromStorage = normalizeStoreId(window.localStorage.getItem(STORE_STORAGE_KEY));
+  const storeId = fromUrl || fromStorage;
 
   if (storeId) {
     window.localStorage.setItem(STORE_STORAGE_KEY, storeId);
   }
 
   return storeId;
+}
+
+function getStoredAdminToken(storeId: string) {
+  if (typeof window === "undefined" || !storeId) {
+    return "";
+  }
+
+  return window.localStorage.getItem(`${ADMIN_TOKEN_STORAGE_KEY}:${storeId}`) || "";
+}
+
+function getAdminToken(storeId: string) {
+  if (typeof window === "undefined" || !storeId) {
+    return "";
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const fromUrl = params.get("admin") || "";
+  const adminToken = fromUrl || getStoredAdminToken(storeId);
+
+  if (adminToken) {
+    window.localStorage.setItem(`${ADMIN_TOKEN_STORAGE_KEY}:${storeId}`, adminToken);
+  }
+
+  return adminToken;
 }
 
 function getCustomerId(storeId: string) {
@@ -325,7 +366,7 @@ function getLangParam(value: string | null): Lang | null {
   return value === "en" || value === "ja" ? value : null;
 }
 
-function getStoreApiUrl(storeId: string, customerId?: string) {
+function getStoreApiUrl(storeId: string, customerId?: string, adminToken?: string) {
   const params = new URLSearchParams({
     storeId,
   });
@@ -334,11 +375,15 @@ function getStoreApiUrl(storeId: string, customerId?: string) {
     params.set("customerId", customerId);
   }
 
+  if (adminToken) {
+    params.set("admin", adminToken);
+  }
+
   return `/api/store?${params.toString()}`;
 }
 
-async function fetchStore(storeId: string, customerId: string) {
-  const response = await fetch(getStoreApiUrl(storeId, customerId), {
+async function fetchStore(storeId: string, customerId: string, adminToken?: string) {
+  const response = await fetch(getStoreApiUrl(storeId, customerId, adminToken), {
     cache: "no-store",
   });
 
@@ -384,6 +429,14 @@ function createId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+function createAdminToken() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID().replace(/-/g, "");
+  }
+
+  return `${Date.now()}${Math.random().toString(16).slice(2)}${Math.random().toString(16).slice(2)}`;
+}
+
 async function sendArcPayment(
   recipientAddress: string | undefined,
   priceUsdc: number,
@@ -422,6 +475,7 @@ export default function Home() {
   const t: Copy = copy[lang];
   const [screen, setScreen] = useState<Screen>("home");
   const [storeId, setStoreId] = useState("");
+  const [adminToken, setAdminToken] = useState("");
   const [tableId, setTableId] = useState("1");
   const [store, setStore] = useState<StoreState>(initialState);
   const [currentCustomer, setCurrentCustomer] = useState<Customer>(fallbackCustomer);
@@ -445,6 +499,7 @@ export default function Home() {
         setScreen(screenFromUrl);
       }
       setStoreId(activeStoreId);
+      setAdminToken(getAdminToken(activeStoreId));
       if (!activeStoreId) {
         setStatusMessage("");
       }
@@ -461,13 +516,46 @@ export default function Home() {
 
     async function refresh() {
       try {
-        const nextStore = await fetchStore(storeId, customerId);
+        let activeAdminToken = getAdminToken(storeId);
+        setAdminToken(activeAdminToken);
+        const nextStore = await fetchStore(storeId, customerId, activeAdminToken);
         if (!isActive) {
           return;
+        }
+        if ((screen === "merchant" || screen === "settings") && nextStore.adminAuthorized === false) {
+          setStatusMessage(t.adminLocked);
+          setScreen("home");
+          return;
+        }
+        if ((screen === "merchant" || screen === "settings") && !activeAdminToken) {
+          activeAdminToken = createAdminToken();
+          window.localStorage.setItem(`${ADMIN_TOKEN_STORAGE_KEY}:${storeId}`, activeAdminToken);
+          const params = new URLSearchParams(window.location.search);
+          params.set("store", storeId);
+          params.set("admin", activeAdminToken);
+          params.set("screen", screen);
+          params.set("lang", lang);
+          window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+          setAdminToken(activeAdminToken);
+          await fetch("/api/store", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "settings",
+              storeId,
+              adminToken: activeAdminToken,
+              storeName: nextStore.storeName,
+              exchangeRateJpyPerUsdc: nextStore.exchangeRateJpyPerUsdc,
+              paymentMode: nextStore.paymentMode,
+              recipientAddress: nextStore.recipientAddress || "",
+              shops: nextStore.shops,
+            }),
+          });
         }
         if (screen !== "settings") {
           setStore({
             storeName: nextStore.storeName,
+            adminToken: activeAdminToken,
             exchangeRateJpyPerUsdc: nextStore.exchangeRateJpyPerUsdc,
             paymentMode: nextStore.paymentMode,
             recipientAddress: nextStore.recipientAddress,
@@ -476,7 +564,7 @@ export default function Home() {
             payments: nextStore.payments,
           });
         }
-        setCurrentCustomer(nextStore.currentCustomer);
+        setCurrentCustomer(nextStore.currentCustomer || fallbackCustomer);
         setSelectedShopId((current) => nextStore.shops.find((shop) => shop.id === current)?.id || nextStore.shops[0]?.id || "");
         if (screen !== "settings") {
           setStatusMessage("");
@@ -498,7 +586,7 @@ export default function Home() {
         window.clearInterval(timer);
       }
     };
-  }, [storeId, screen, t.loadFailed]);
+  }, [storeId, screen, lang, t.adminLocked, t.loadFailed]);
 
   const effectiveSelectedShopId = store.shops.some((shop) => shop.id === selectedShopId)
     ? selectedShopId
@@ -539,9 +627,10 @@ export default function Home() {
       return;
     }
 
-    const nextStore = await fetchStore(storeId, currentCustomer.id);
+    const nextStore = await fetchStore(storeId, currentCustomer.id, adminToken);
     setStore({
       storeName: nextStore.storeName,
+      adminToken,
       exchangeRateJpyPerUsdc: nextStore.exchangeRateJpyPerUsdc,
       paymentMode: nextStore.paymentMode,
       recipientAddress: nextStore.recipientAddress,
@@ -549,7 +638,7 @@ export default function Home() {
       customers: nextStore.customers,
       payments: nextStore.payments,
     });
-    setCurrentCustomer(nextStore.currentCustomer);
+    setCurrentCustomer(nextStore.currentCustomer || currentCustomer);
   }
 
   function changeLanguage(nextLang: Lang) {
@@ -735,7 +824,7 @@ export default function Home() {
       const response = await fetch("/api/store", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "serve_order", storeId, orderId }),
+        body: JSON.stringify({ action: "serve_order", storeId, orderId, adminToken }),
       });
 
       if (!response.ok) {
@@ -767,6 +856,7 @@ export default function Home() {
         body: JSON.stringify({
           action: "settings",
           storeId,
+          adminToken,
           ...nextSettings,
         }),
       });
@@ -791,7 +881,7 @@ export default function Home() {
       await fetch("/api/store", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "reset", storeId }),
+        body: JSON.stringify({ action: "reset", storeId, adminToken }),
       });
       setStatusMessage("");
       await refreshStore();
@@ -800,15 +890,21 @@ export default function Home() {
     }
   }
 
-  function goToCreationTop() {
+  function goToCreationTop(options: { clearStore?: boolean } = {}) {
     if (typeof window === "undefined") {
       return;
     }
 
-    window.localStorage.removeItem(STORE_STORAGE_KEY);
     window.history.pushState(null, "", window.location.pathname);
-    setStoreId("");
-    setStore(initialState);
+    if (options.clearStore) {
+      window.localStorage.removeItem(STORE_STORAGE_KEY);
+      if (storeId) {
+        window.localStorage.removeItem(`${ADMIN_TOKEN_STORAGE_KEY}:${storeId}`);
+      }
+      setStoreId("");
+      setAdminToken("");
+      setStore(initialState);
+    }
     setCurrentCustomer(fallbackCustomer);
     setSuccessItemName(null);
     setSuccessPaymentId(null);
@@ -833,9 +929,9 @@ export default function Home() {
       await fetch("/api/store", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "delete_store", storeId }),
+        body: JSON.stringify({ action: "delete_store", storeId, adminToken }),
       });
-      goToCreationTop();
+      goToCreationTop({ clearStore: true });
     } catch {
       setStatusMessage(t.deleteFailed);
     }
@@ -847,19 +943,23 @@ export default function Home() {
     }
 
     const nextStoreId = createId("store").replace(/[^a-z0-9-]/g, "-").slice(0, 32);
+    const nextAdminToken = createAdminToken();
     const params = new URLSearchParams(window.location.search);
     params.set("store", nextStoreId);
     params.set("screen", "settings");
     params.set("lang", lang);
+    params.set("admin", nextAdminToken);
     window.localStorage.setItem(STORE_STORAGE_KEY, nextStoreId);
+    window.localStorage.setItem(`${ADMIN_TOKEN_STORAGE_KEY}:${nextStoreId}`, nextAdminToken);
     window.history.pushState(null, "", `${window.location.pathname}?${params.toString()}`);
-    setStore(initialState);
+    setStore({ ...initialState, adminToken: nextAdminToken });
     setCurrentCustomer(fallbackCustomer);
     setSuccessItemName(null);
     setSuccessPaymentId(null);
     setConfirmShopId(null);
     setStatusMessage(t.creating);
     setStoreId(nextStoreId);
+    setAdminToken(nextAdminToken);
     setScreen("settings");
   }
 
@@ -882,7 +982,7 @@ export default function Home() {
               </div>
               {screen === "merchant" ? (
                 <div className="flex items-center gap-2">
-                  <button className="touch-button small-button hidden sm:block" type="button" onClick={goToCreationTop}>
+                  <button className="touch-button small-button hidden sm:block" type="button" onClick={() => goToCreationTop()}>
                     TOP
                   </button>
                   <button className="touch-button small-button" type="button" onClick={() => setScreen("settings")}>
@@ -901,6 +1001,8 @@ export default function Home() {
           <HomeScreen
             storeName={store.storeName}
             storeId={storeId}
+            adminToken={adminToken}
+            statusMessage={statusMessage}
             lang={lang}
             t={t}
             onLanguageChange={changeLanguage}
@@ -938,6 +1040,7 @@ export default function Home() {
         {screen === "merchant" ? (
           <MerchantScreen
             storeId={storeId}
+            adminToken={adminToken}
             selectedShopId={effectiveSelectedShopId}
             selectedStats={selectedStats}
             shopStats={shopStats}
@@ -955,6 +1058,9 @@ export default function Home() {
         {screen === "settings" ? (
           <SettingsScreen
             store={store}
+            storeId={storeId}
+            adminToken={adminToken}
+            lang={lang}
             statusMessage={statusMessage}
             t={t}
             onSaveSettings={async (nextSettings) => {
@@ -1008,6 +1114,8 @@ export default function Home() {
 function HomeScreen({
   storeName,
   storeId,
+  adminToken,
+  statusMessage,
   lang,
   t,
   onLanguageChange,
@@ -1016,6 +1124,8 @@ function HomeScreen({
 }: {
   storeName: string;
   storeId: string;
+  adminToken: string;
+  statusMessage: string;
   lang: Lang;
   t: Copy;
   onLanguageChange: (lang: Lang) => void;
@@ -1057,10 +1167,18 @@ function HomeScreen({
     );
   }
 
+  const managerUrl =
+    typeof window === "undefined" || !adminToken
+      ? ""
+      : `${window.location.origin}${window.location.pathname}?store=${encodeURIComponent(storeId)}&screen=merchant&lang=${lang}&admin=${encodeURIComponent(adminToken)}`;
+
   return (
     <section className="flex flex-1 flex-col px-5 py-8">
       <div className="mb-8">
-        <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#0f6b57]">ArcTable</p>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#0f6b57]">ArcTable</p>
+          <LanguageToggle lang={lang} onChange={onLanguageChange} />
+        </div>
         <h1 className="mt-2 text-4xl font-bold leading-tight text-[#17201d] sm:text-5xl">{storeName}</h1>
         {storeId ? (
           <p className="mt-3 inline-block rounded-md border border-[#d9e3df] bg-white px-4 py-2 text-sm font-bold text-[#53625d]">
@@ -1068,6 +1186,26 @@ function HomeScreen({
           </p>
         ) : null}
       </div>
+
+      {statusMessage ? (
+        <p className="mb-4 rounded-lg border border-[#d9e3df] bg-white px-4 py-3 text-center text-sm font-bold text-[#53625d]">
+          {statusMessage}
+        </p>
+      ) : null}
+
+      {managerUrl ? (
+        <div className="mb-4 rounded-lg border border-[#0f6b57]/30 bg-[#e7f4ef] p-4">
+          <p className="text-lg font-black text-[#0f6b57]">{t.saveManagerUrlTitle}</p>
+          <p className="mt-2 text-sm font-bold leading-6 text-[#53625d]">{t.saveManagerUrlWarning}</p>
+          <button
+            className="mt-3 rounded-md bg-[#0f6b57] px-4 py-3 text-sm font-black text-white"
+            type="button"
+            onClick={() => void navigator.clipboard?.writeText(managerUrl)}
+          >
+            {t.copiedManagerUrl}
+          </button>
+        </div>
+      ) : null}
 
       <div className="grid flex-1 content-center gap-4 sm:grid-cols-2">
         <a
@@ -1080,12 +1218,16 @@ function HomeScreen({
         </a>
         <a
           className="role-button bg-[#17201d] text-white"
-          href={`/?store=${storeId}&screen=merchant&lang=${lang}`}
+          href={managerUrl || `/?store=${storeId}&screen=merchant&lang=${lang}`}
           onPointerDown={() => onNavigate("merchant")}
         >
           <span className="grid size-12 place-items-center rounded-md bg-white/12 text-base font-bold text-white">POS</span>
           <span className="text-white">{t.merchantView}</span>
         </a>
+        <button className="role-button bg-white sm:col-span-2" type="button" onClick={onCreateStore}>
+          <span className="grid size-12 place-items-center rounded-md bg-[#0f6b57] text-xl text-white">＋</span>
+          <span>{t.newStore}</span>
+        </button>
       </div>
     </section>
   );
@@ -1312,6 +1454,7 @@ function CustomerScreen({
 
 function MerchantScreen({
   storeId,
+  adminToken,
   selectedShopId,
   selectedStats,
   shopStats,
@@ -1325,6 +1468,7 @@ function MerchantScreen({
   onCreateNewStore,
 }: {
   storeId: string;
+  adminToken: string;
   selectedShopId: string;
   selectedStats?: {
     shop: Shop;
@@ -1355,6 +1499,10 @@ function MerchantScreen({
     typeof window === "undefined" || !storeId
       ? ""
       : `${window.location.origin}${window.location.pathname}?store=${encodeURIComponent(storeId)}&table=1&screen=customer&lang=${lang}`;
+  const managerUrl =
+    typeof window === "undefined" || !storeId || !adminToken
+      ? ""
+      : `${window.location.origin}${window.location.pathname}?store=${encodeURIComponent(storeId)}&screen=merchant&lang=${lang}&admin=${encodeURIComponent(adminToken)}`;
 
   return (
     <section className="flex-1 bg-[#17201d] px-4 py-5 text-white">
@@ -1391,6 +1539,23 @@ function MerchantScreen({
             {t.newStore}
           </button>
         </div>
+      </div>
+
+      <div className="mt-3 rounded-lg border border-[#f8d45d]/40 bg-[#2a2f25] p-4">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#f8d45d]">{t.managerUrl}</p>
+        <p className="mt-2 text-sm font-bold leading-6 text-white/80">{t.saveManagerUrlWarning}</p>
+        <p className="mt-2 break-all font-mono text-sm font-black text-white/80">{managerUrl || t.readying}</p>
+        <button
+          className="mt-3 rounded-md bg-[#f8d45d] px-3 py-3 text-sm font-black text-[#23190b]"
+          type="button"
+          onClick={() => {
+            if (managerUrl) {
+              void navigator.clipboard?.writeText(managerUrl);
+            }
+          }}
+        >
+          {t.copiedManagerUrl}
+        </button>
       </div>
 
       <div className="mt-4 flex gap-2 overflow-x-auto pb-2">
@@ -1536,6 +1701,9 @@ function Metric({ label, value }: { label: string; value: string }) {
 
 function SettingsScreen({
   store,
+  storeId,
+  adminToken,
+  lang,
   statusMessage,
   t,
   onSaveSettings,
@@ -1544,6 +1712,9 @@ function SettingsScreen({
   onDeleteStore,
 }: {
   store: StoreState;
+  storeId: string;
+  adminToken: string;
+  lang: Lang;
   statusMessage: string;
   t: Copy;
   onSaveSettings: (
@@ -1560,6 +1731,10 @@ function SettingsScreen({
     recipientAddress: store.recipientAddress || "",
     shops: store.shops,
   }));
+  const managerUrl =
+    typeof window === "undefined" || !storeId || !adminToken
+      ? ""
+      : `${window.location.origin}${window.location.pathname}?store=${encodeURIComponent(storeId)}&screen=merchant&lang=${lang}&admin=${encodeURIComponent(adminToken)}`;
 
   function handlePrice(event: FormEvent<HTMLInputElement>, shop: Shop) {
     const value = Number(event.currentTarget.value);
@@ -1613,6 +1788,21 @@ function SettingsScreen({
         <p className="mb-4 rounded-lg border border-[#d9e3df] bg-white px-4 py-3 text-center text-sm font-bold text-[#53625d]">
           {statusMessage}
         </p>
+      ) : null}
+
+      {managerUrl ? (
+        <div className="mb-4 rounded-lg border border-[#0f6b57]/30 bg-[#e7f4ef] p-4">
+          <p className="text-lg font-black text-[#0f6b57]">{t.saveManagerUrlTitle}</p>
+          <p className="mt-2 text-sm font-bold leading-6 text-[#53625d]">{t.saveManagerUrlWarning}</p>
+          <p className="mt-3 break-all rounded-md bg-white p-3 font-mono text-xs font-bold text-[#17201d]">{managerUrl}</p>
+          <button
+            className="mt-3 rounded-md bg-[#0f6b57] px-4 py-3 text-sm font-black text-white"
+            type="button"
+            onClick={() => void navigator.clipboard?.writeText(managerUrl)}
+          >
+            {t.copiedManagerUrl}
+          </button>
+        </div>
       ) : null}
 
       <div className="rounded-lg border border-[#d9e3df] bg-white p-4 shadow-sm">

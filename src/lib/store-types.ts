@@ -56,6 +56,7 @@ export type PaymentMode = "demo" | "arc-mainnet";
 
 export type StoreState = {
   storeName: string;
+  adminToken?: string;
   exchangeRateJpyPerUsdc: number;
   paymentMode: PaymentMode;
   recipientAddress?: string;
@@ -66,7 +67,8 @@ export type StoreState = {
 
 export type StoreResponse = StoreState & {
   storeId: string;
-  currentCustomer: Customer;
+  currentCustomer?: Customer;
+  adminAuthorized?: boolean;
 };
 
 export type ShopStats = {
