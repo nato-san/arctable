@@ -382,7 +382,7 @@ function getStoreApiUrl(storeId: string, customerId?: string, adminToken?: strin
   return `/api/store?${params.toString()}`;
 }
 
-async function fetchStore(storeId: string, customerId: string, adminToken?: string) {
+async function fetchStore(storeId: string, customerId?: string, adminToken?: string) {
   const response = await fetch(getStoreApiUrl(storeId, customerId, adminToken), {
     cache: "no-store",
   });
@@ -512,7 +512,7 @@ export default function Home() {
     }
 
     let isActive = true;
-    const customerId = getCustomerId(storeId);
+    const customerId = screen === "customer" ? getCustomerId(storeId) : undefined;
 
     async function refresh() {
       try {
@@ -564,13 +564,15 @@ export default function Home() {
             payments: nextStore.payments,
           });
         }
-        setCurrentCustomer(nextStore.currentCustomer || fallbackCustomer);
+        if (nextStore.currentCustomer) {
+          setCurrentCustomer(nextStore.currentCustomer);
+        }
         setSelectedShopId((current) => nextStore.shops.find((shop) => shop.id === current)?.id || nextStore.shops[0]?.id || "");
         if (screen !== "settings") {
           setStatusMessage("");
         }
       } catch {
-        if (isActive) {
+        if (isActive && screen !== "settings") {
           setStatusMessage(t.loadFailed);
         }
       }
@@ -627,7 +629,8 @@ export default function Home() {
       return;
     }
 
-    const nextStore = await fetchStore(storeId, currentCustomer.id, adminToken);
+    const customerId = screen === "customer" ? currentCustomer.id : undefined;
+    const nextStore = await fetchStore(storeId, customerId, adminToken);
     setStore({
       storeName: nextStore.storeName,
       adminToken,
@@ -638,7 +641,9 @@ export default function Home() {
       customers: nextStore.customers,
       payments: nextStore.payments,
     });
-    setCurrentCustomer(nextStore.currentCustomer || currentCustomer);
+    if (nextStore.currentCustomer) {
+      setCurrentCustomer(nextStore.currentCustomer);
+    }
   }
 
   function changeLanguage(nextLang: Lang) {
