@@ -136,6 +136,15 @@ function getStoreFile(storeId: string) {
   return path.join(STORES_DIR, `${normalizeStoreId(storeId)}.json`);
 }
 
+async function assertRedisResponse(response: Response, operation: string) {
+  if (response.ok) {
+    return;
+  }
+
+  const body = await response.text().catch(() => "");
+  throw new Error(`redis_${operation}_failed:${response.status}:${body.slice(0, 120)}`);
+}
+
 async function readStoredState(storeId: string) {
   const redis = getRedisConfig();
 
@@ -147,11 +156,13 @@ async function readStoredState(storeId: string) {
       cache: "no-store",
     });
 
-    if (!response.ok) {
-      throw new Error("redis_read_failed");
+    await assertRedisResponse(response, "read");
+
+    const payload = (await response.json()) as { result: StoreState | string | null };
+    if (payload.result && typeof payload.result !== "string") {
+      return JSON.stringify(payload.result);
     }
 
-    const payload = (await response.json()) as { result: string | null };
     return payload.result;
   }
 
@@ -171,9 +182,7 @@ async function saveState(storeId: string, state: StoreState) {
       body: JSON.stringify(state),
     });
 
-    if (!response.ok) {
-      throw new Error("redis_write_failed");
-    }
+    await assertRedisResponse(response, "write");
 
     return;
   }
@@ -194,9 +203,7 @@ export async function deleteStoreState(storeId: string) {
       },
     });
 
-    if (!response.ok) {
-      throw new Error("redis_delete_failed");
-    }
+    await assertRedisResponse(response, "delete");
 
     return { ok: true as const, storeId: normalizedStoreId };
   }
@@ -258,7 +265,11 @@ export async function readState(storeId = DEFAULT_STORE_ID): Promise<StoreState>
     const parsed = JSON.parse(raw) as Partial<StoreState>;
 
     return normalizeState(parsed);
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("redis_")) {
+      throw error;
+    }
+
     await saveState(normalizedStoreId, initialState);
     return initialState;
   }

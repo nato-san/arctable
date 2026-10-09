@@ -90,37 +90,47 @@ function getStoreId(request: NextRequest, body?: { storeId?: string }) {
   return normalizeStoreId(body?.storeId || request.nextUrl.searchParams.get("storeId"));
 }
 
+function logApiError(action: string, error: unknown) {
+  console.error(`[api/store] ${action} failed`, error instanceof Error ? error.message : error);
+}
+
 export async function GET(request: NextRequest) {
-  const customerId = request.nextUrl.searchParams.get("customerId");
-  const storeId = getStoreId(request);
+  try {
+    const customerId = request.nextUrl.searchParams.get("customerId");
+    const storeId = getStoreId(request);
 
-  if (customerId) {
-    const state = await ensureCustomer(storeId, customerId);
-    return NextResponse.json(state);
+    if (customerId) {
+      const state = await ensureCustomer(storeId, customerId);
+      return NextResponse.json(state);
+    }
+
+    return NextResponse.json({
+      ...(await readState(storeId)),
+      storeId,
+    });
+  } catch (error) {
+    logApiError("GET", error);
+    return NextResponse.json({ ok: false, reason: "store_read_failed" }, { status: 500 });
   }
-
-  return NextResponse.json({
-    ...(await readState(storeId)),
-    storeId,
-  });
 }
 
 export async function POST(request: NextRequest) {
-  const body = (await request.json()) as StoreAction;
-  const storeId = getStoreId(request, body);
+  try {
+    const body = (await request.json()) as StoreAction;
+    const storeId = getStoreId(request, body);
 
-  if (body.action === "purchase") {
-    const result = await recordPurchase(storeId, body.customerId, body.shopId, {
-      mode: body.mode,
-      status: body.status,
-      transactionHash: body.transactionHash,
-      blockNumber: body.blockNumber,
-      gasUsed: body.gasUsed,
-      payerAddress: body.payerAddress,
-      tableId: body.tableId,
-    });
-    return NextResponse.json(result, { status: result.ok ? 200 : 400 });
-  }
+    if (body.action === "purchase") {
+      const result = await recordPurchase(storeId, body.customerId, body.shopId, {
+        mode: body.mode,
+        status: body.status,
+        transactionHash: body.transactionHash,
+        blockNumber: body.blockNumber,
+        gasUsed: body.gasUsed,
+        payerAddress: body.payerAddress,
+        tableId: body.tableId,
+      });
+      return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+    }
 
   if (body.action === "create_onchain_order") {
     const result = await createOnchainOrder(storeId, body.customerId, body.shopId, body.payerAddress, body.tableId);
@@ -189,5 +199,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result);
   }
 
-  return NextResponse.json({ ok: false, reason: "unknown_action" }, { status: 400 });
+    return NextResponse.json({ ok: false, reason: "unknown_action" }, { status: 400 });
+  } catch (error) {
+    logApiError("POST", error);
+    return NextResponse.json({ ok: false, reason: "store_write_failed" }, { status: 500 });
+  }
 }
