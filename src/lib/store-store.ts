@@ -146,20 +146,36 @@ async function assertRedisResponse(response: Response, operation: string) {
   throw new Error(`redis_${operation}_failed:${response.status}:${body.slice(0, 120)}`);
 }
 
+async function runRedisCommand<T>(operation: string, command: string[]) {
+  const redis = getRedisConfig();
+  if (!redis) {
+    return null;
+  }
+
+  const response = await fetch(redis.url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${redis.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(command),
+    cache: "no-store",
+  });
+
+  await assertRedisResponse(response, operation);
+
+  return (await response.json()) as { result: T };
+}
+
 async function readStoredState(storeId: string) {
   const redis = getRedisConfig();
 
   if (redis) {
-    const response = await fetch(`${redis.url}/get/${encodeURIComponent(getRedisKey(storeId))}`, {
-      headers: {
-        Authorization: `Bearer ${redis.token}`,
-      },
-      cache: "no-store",
-    });
+    const payload = await runRedisCommand<StoreState | string | null>("read", ["GET", getRedisKey(storeId)]);
+    if (!payload) {
+      throw new Error("redis_read_failed:missing_config");
+    }
 
-    await assertRedisResponse(response, "read");
-
-    const payload = (await response.json()) as { result: StoreState | string | null };
     if (payload.result && typeof payload.result !== "string") {
       return JSON.stringify(payload.result);
     }
@@ -174,16 +190,7 @@ async function saveState(storeId: string, state: StoreState) {
   const redis = getRedisConfig();
 
   if (redis) {
-    const response = await fetch(`${redis.url}/set/${encodeURIComponent(getRedisKey(storeId))}`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${redis.token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(state),
-    });
-
-    await assertRedisResponse(response, "write");
+    await runRedisCommand<"OK">("write", ["SET", getRedisKey(storeId), JSON.stringify(state)]);
 
     return;
   }
@@ -197,14 +204,7 @@ export async function deleteStoreState(storeId: string) {
   const redis = getRedisConfig();
 
   if (redis) {
-    const response = await fetch(`${redis.url}/del/${encodeURIComponent(getRedisKey(normalizedStoreId))}`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${redis.token}`,
-      },
-    });
-
-    await assertRedisResponse(response, "delete");
+    await runRedisCommand<number>("delete", ["DEL", getRedisKey(normalizedStoreId)]);
 
     return { ok: true as const, storeId: normalizedStoreId };
   }
