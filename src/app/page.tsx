@@ -71,6 +71,7 @@ const copy = {
     paymentMode: "Payment mode",
     selected: "Selected",
     arcModeHelp: "With Arc USDC, the customer pays from their wallet on Arc Mainnet after the order is served.",
+    demoModeHelp: "Use this mode for demos without wallets. Orders become paid after the customer confirms receipt.",
     menu: "Menu",
     emoji: "Icon",
     itemName: "Item name",
@@ -192,6 +193,7 @@ const copy = {
     paymentMode: "支払いモード",
     selected: "選択中",
     arcModeHelp: "Arc USDCでは、商品提供後にお客様のウォレットからArc Mainnetで支払います。",
+    demoModeHelp: "ウォレットを使わないデモ用です。お客様が受け取り確認をすると支払済みになります。",
     menu: "メニュー",
     emoji: "アイコン",
     itemName: "商品名",
@@ -900,7 +902,11 @@ export default function Home() {
       return false;
     }
 
-    setStore((current) => ({ ...current, ...nextSettings }));
+    const settingsToSave = {
+      ...nextSettings,
+      recipientAddress: nextSettings.paymentMode === "arc-mainnet" ? nextSettings.recipientAddress : "",
+    };
+    setStore((current) => ({ ...current, ...settingsToSave }));
     setStatusMessage(t.saving);
 
     try {
@@ -911,7 +917,7 @@ export default function Home() {
           action: "settings",
           storeId,
           adminToken,
-          ...nextSettings,
+          ...settingsToSave,
         }),
       });
       setStatusMessage("");
@@ -1768,12 +1774,14 @@ function MerchantScreen({
         <Metric label={t.count} value={`${selectedStats.count}`} />
       </div>
 
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+      <div className={`mt-3 grid gap-3 ${paymentMode === "arc-mainnet" ? "sm:grid-cols-2" : ""}`}>
         <Metric label={t.network} value={paymentMode === "arc-mainnet" ? "Arc Mainnet / On-chain" : "Test checkout"} />
-        <Metric
-          label={t.receive}
-          value={recipientAddress ? shortHash(recipientAddress) : t.notSet}
-        />
+        {paymentMode === "arc-mainnet" ? (
+          <Metric
+            label={t.receive}
+            value={recipientAddress ? shortHash(recipientAddress) : t.notSet}
+          />
+        ) : null}
       </div>
 
       {paymentMode === "arc-mainnet" && !isAddressLike(recipientAddress) ? (
@@ -2145,7 +2153,7 @@ function SettingsScreen({
             }`}
             type="button"
             aria-pressed={draft.paymentMode === "demo"}
-            onClick={() => setDraft((current) => ({ ...current, paymentMode: "demo" }))}
+            onClick={() => setDraft((current) => ({ ...current, paymentMode: "demo", recipientAddress: "" }))}
           >
             <span className="block">{t.demoMode}</span>
             {draft.paymentMode === "demo" ? <span className="mt-1 block text-xs">{t.selected}</span> : null}
@@ -2165,23 +2173,25 @@ function SettingsScreen({
           </button>
         </div>
         <p className="mt-3 text-sm font-medium leading-6 text-[#53625d]">
-          {t.arcModeHelp}
+          {draft.paymentMode === "arc-mainnet" ? t.arcModeHelp : t.demoModeHelp}
         </p>
-        <div className="mt-4">
-          <label className="field-label" htmlFor="store-recipient">
-            {t.recipient}
-          </label>
-          <input
-            id="store-recipient"
-            className="text-field mt-2 font-mono text-sm"
-            placeholder="0x..."
-            value={draft.recipientAddress}
-            onChange={(event) => setDraft((current) => ({ ...current, recipientAddress: event.target.value.trim() }))}
-          />
-          {draft.paymentMode === "arc-mainnet" && !isAddressLike(draft.recipientAddress) ? (
-            <p className="mt-2 text-sm font-bold text-[#b62e22]">{t.recipientRequired}</p>
-          ) : null}
-        </div>
+        {draft.paymentMode === "arc-mainnet" ? (
+          <div className="mt-4">
+            <label className="field-label" htmlFor="store-recipient">
+              {t.recipient}
+            </label>
+            <input
+              id="store-recipient"
+              className="text-field mt-2 font-mono text-sm"
+              placeholder="0x..."
+              value={draft.recipientAddress}
+              onChange={(event) => setDraft((current) => ({ ...current, recipientAddress: event.target.value.trim() }))}
+            />
+            {!isAddressLike(draft.recipientAddress) ? (
+              <p className="mt-2 text-sm font-bold text-[#b62e22]">{t.recipientRequired}</p>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <div className="mt-4 flex items-center justify-between gap-3">
