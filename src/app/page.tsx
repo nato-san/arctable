@@ -59,6 +59,7 @@ const copy = {
     notSet: "Not set",
     setRecipient: "Set a payout wallet before enabling on-chain orders.",
     noOrders: "No orders yet",
+    orderHistory: "Order history",
     storeName: "Store name",
     paymentMode: "Payment mode",
     selected: "Selected",
@@ -172,6 +173,7 @@ const copy = {
     notSet: "未設定",
     setRecipient: "オンチェーン注文を有効にする前に受取ウォレットを設定してください。",
     noOrders: "まだ注文はありません",
+    orderHistory: "注文履歴",
     storeName: "店舗名",
     paymentMode: "支払いモード",
     selected: "選択中",
@@ -1031,6 +1033,7 @@ export default function Home() {
             paymentMode={store.paymentMode}
             recipientAddress={store.recipientAddress}
             shops={store.shops}
+            orderHistory={store.payments}
             tableId={tableId}
             activeOrder={activeCustomerOrder}
             successItemName={successItemName}
@@ -1292,6 +1295,7 @@ function CustomerScreen({
   paymentMode,
   recipientAddress,
   shops,
+  orderHistory,
   tableId,
   activeOrder,
   successItemName,
@@ -1311,6 +1315,7 @@ function CustomerScreen({
   paymentMode: PaymentMode;
   recipientAddress?: string;
   shops: Shop[];
+  orderHistory: PaymentRecord[];
   tableId: string;
   activeOrder: PaymentRecord | null;
   successItemName: string | null;
@@ -1326,6 +1331,10 @@ function CustomerScreen({
   onConfirmServedOrder: (order: PaymentRecord) => void;
   onCloseSuccess: () => void;
 }) {
+  const customerOrders = orderHistory
+    .filter((payment) => payment.customerId === customer.id)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
   return (
     <section className="flex-1 px-4 py-5">
       <div className="mb-4 rounded-lg border border-[#d9e3df] bg-white p-4 shadow-sm">
@@ -1485,6 +1494,50 @@ function CustomerScreen({
           );
         })}
       </div>
+
+      <section className="mt-5 rounded-lg border border-[#d9e3df] bg-white shadow-sm">
+        <div className="border-b border-[#d9e3df] px-4 py-3">
+          <h2 className="text-sm font-black uppercase tracking-[0.16em] text-[#0f6b57]">{t.orderHistory}</h2>
+        </div>
+        <div className="divide-y divide-[#d9e3df]">
+          {customerOrders.length > 0 ? (
+            customerOrders.slice(0, 10).map((record) => (
+              <div key={record.id} className="grid gap-2 px-4 py-4 sm:grid-cols-[1fr_auto] sm:items-center">
+                <div>
+                  <p className="text-lg font-black text-[#17201d]">
+                    {record.itemName} ×{record.quantity}
+                  </p>
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs font-bold text-[#53625d]">
+                    <span>{formatTime(record.createdAt)}</span>
+                    <span>{t.orderId} {record.id.slice(-8)}</span>
+                    {record.tableId ? <span>Table {record.tableId}</span> : null}
+                    {record.transactionHash ? (
+                      <a
+                        className="text-[#0f6b57] underline"
+                        href={`${ARC_MAINNET_EXPLORER_URL}/tx/${record.transactionHash}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Tx {shortHash(record.transactionHash)}
+                      </a>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-3 sm:justify-end">
+                  <span className="rounded-full bg-[#eef4f1] px-3 py-2 text-xs font-black text-[#53625d]">
+                    {statusLabel(record.status, t)}
+                  </span>
+                  <span className="font-mono text-lg font-black text-[#0f6b57]">
+                    {formatUsdc(record.priceUsdc)} USDC
+                  </span>
+                </div>
+              </div>
+            ))
+          ) : (
+            <p className="px-4 py-8 text-center text-sm font-bold text-[#53625d]">{t.noOrders}</p>
+          )}
+        </div>
+      </section>
     </section>
   );
 }
