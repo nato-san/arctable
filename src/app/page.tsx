@@ -1,6 +1,8 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import qrcode from "qrcode-generator";
+import Image from "next/image";
 import { formatEther, parseEther, type Address } from "viem";
 import { useAppKit } from "@reown/appkit/react";
 import { sendTransaction, switchChain } from "wagmi/actions";
@@ -47,6 +49,8 @@ const copy = {
     tableUrlSettings: "Table URL settings",
     tableCount: "Number of tables",
     tableCountHelp: "Generate one customer order URL for each table. Put each URL into a QR code and place it on the table.",
+    qrCode: "QR code",
+    scanQr: "Scan to open this table order screen.",
     copyTableUrl: "Copy table URL",
     copied: "Copied",
     transactionUrl: "Transaction URL",
@@ -176,6 +180,8 @@ const copy = {
     tableUrlSettings: "テーブルURL設定",
     tableCount: "テーブル数",
     tableCountHelp: "テーブルごとの注文URLを作成します。各URLをQRコードにして、対応するテーブルに置いてください。",
+    qrCode: "QRコード",
+    scanQr: "読み取ると、このテーブルの注文画面が開きます。",
     copyTableUrl: "テーブルURLをコピー",
     copied: "コピーしました",
     transactionUrl: "取引URL",
@@ -2013,6 +2019,29 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
+function TableQrCode({ url, label }: { url: string; label: string }) {
+  const qrDataUrl = useMemo(() => {
+    if (!url) {
+      return "";
+    }
+
+    const qr = qrcode(0, "M");
+    qr.addData(url);
+    qr.make();
+    return qr.createDataURL(8, 2);
+  }, [url]);
+
+  if (!qrDataUrl) {
+    return null;
+  }
+
+  return (
+    <div className="shrink-0 rounded-lg border border-[#d9e3df] bg-white p-3 shadow-sm">
+      <Image className="h-36 w-36" src={qrDataUrl} alt={label} width={144} height={144} unoptimized />
+    </div>
+  );
+}
+
 function TablesScreen({
   store,
   storeId,
@@ -2105,19 +2134,21 @@ function TablesScreen({
 
           return (
             <article key={tableNumber} className="rounded-lg border border-[#d9e3df] bg-white p-4 shadow-sm">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                <TableQrCode url={url} label={`${t.qrCode}: Table ${tableNumber}`} />
+                <div className="min-w-0 flex-1">
                   <p className="text-lg font-black text-[#17201d]">Table {tableNumber}</p>
+                  <p className="mt-1 text-sm font-bold text-[#53625d]">{t.scanQr}</p>
                   <p className="mt-2 break-all rounded-md bg-[#f5f7f6] p-3 font-mono text-xs font-bold text-[#53625d]">
                     {url}
                   </p>
+                  <CopyButton
+                    className="mt-3 rounded-md bg-[#0f6b57] px-4 py-3 text-sm font-black text-white"
+                    copiedLabel={t.copied}
+                    label={t.copyTableUrl}
+                    text={url}
+                  />
                 </div>
-                <CopyButton
-                  className="rounded-md bg-[#0f6b57] px-4 py-3 text-sm font-black text-white"
-                  copiedLabel={t.copied}
-                  label={t.copyTableUrl}
-                  text={url}
-                />
               </div>
             </article>
           );
