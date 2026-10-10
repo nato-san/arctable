@@ -332,10 +332,10 @@ type PurchaseChainData = {
 export async function recordPurchase(storeId: string, customerId: string, shopId: string, chainData: PurchaseChainData = {}) {
   const normalizedStoreId = normalizeStoreId(storeId);
   const state = await readState(normalizedStoreId);
-  const customer = state.customers.find((item) => item.id === customerId);
+  const customer = state.customers.find((item) => item.id === customerId) || createCustomer(customerId, state.customers.length);
   const shop = state.shops.find((item) => item.id === shopId);
 
-  if (!customer || !shop) {
+  if (!shop) {
     return { ok: false as const, reason: "not_found", state };
   }
 
@@ -364,6 +364,9 @@ export async function recordPurchase(storeId: string, customerId: string, shopId
 
   const nextState: StoreState = {
     ...state,
+    customers: state.customers.some((item) => item.id === customer.id)
+      ? state.customers
+      : [...state.customers, customer],
     payments: [payment, ...state.payments],
   };
   await saveState(normalizedStoreId, nextState);
@@ -380,10 +383,10 @@ export async function createOnchainOrder(
 ) {
   const normalizedStoreId = normalizeStoreId(storeId);
   const state = await readState(normalizedStoreId);
-  const customer = state.customers.find((item) => item.id === customerId);
+  const customer = state.customers.find((item) => item.id === customerId) || createCustomer(customerId, state.customers.length);
   const shop = state.shops.find((item) => item.id === shopId);
 
-  if (!customer || !shop) {
+  if (!shop) {
     return { ok: false as const, reason: "not_found", state };
   }
 
@@ -417,6 +420,9 @@ export async function createOnchainOrder(
 
   const nextState = {
     ...state,
+    customers: state.customers.some((item) => item.id === customer.id)
+      ? state.customers
+      : [...state.customers, customer],
     payments: [payment, ...state.payments],
   };
   await saveState(normalizedStoreId, nextState);

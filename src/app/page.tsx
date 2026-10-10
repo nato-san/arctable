@@ -1500,6 +1500,9 @@ function MerchantScreen({
     return null;
   }
 
+  const allRecords = shopStats
+    .flatMap(({ records }) => records)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   const storeUrl =
     typeof window === "undefined" || !storeId
       ? ""
@@ -1604,8 +1607,8 @@ function MerchantScreen({
           <h2 className="text-sm font-black uppercase tracking-[0.16em] text-[#99dac7]">Orders</h2>
         </div>
         <div className="divide-y divide-white/10">
-          {selectedStats.records.length > 0 ? (
-            selectedStats.records.slice(0, 12).map((record) => (
+          {allRecords.length > 0 ? (
+            allRecords.slice(0, 12).map((record) => (
               <div key={record.id} className="grid gap-3 px-4 py-4 sm:grid-cols-[4rem_1fr_auto] sm:items-center">
                 <p className="font-mono text-sm text-white/70">{formatTime(record.createdAt)}</p>
                 <div>
