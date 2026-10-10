@@ -85,6 +85,8 @@ const copy = {
     backTop: "Back to start",
     deleteDemo: "Delete this store",
     confirmOrderTitle: "Order with USDC?",
+    quantity: "Quantity",
+    orderedMessage: "Order submitted",
     payAfterServedNote: "Payment is made with Arc USDC after the item is served.",
     cancel: "Cancel",
     readying: "Preparing",
@@ -196,6 +198,8 @@ const copy = {
     backTop: "開始画面へ戻る",
     deleteDemo: "この店舗を削除",
     confirmOrderTitle: "USDCで注文しますか？",
+    quantity: "数量",
+    orderedMessage: "注文しました",
     payAfterServedNote: "支払いは商品提供後にArc USDCで行います。",
     cancel: "キャンセル",
     readying: "準備中",
@@ -481,6 +485,7 @@ export default function Home() {
   const [currentCustomer, setCurrentCustomer] = useState<Customer>(fallbackCustomer);
   const [selectedShopId, setSelectedShopId] = useState(fallbackShops[0].id);
   const [confirmShopId, setConfirmShopId] = useState<string | null>(null);
+  const [confirmQuantity, setConfirmQuantity] = useState(1);
   const [successItemName, setSuccessItemName] = useState<string | null>(null);
   const [successPaymentId, setSuccessPaymentId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string>(copy.en.loading);
@@ -663,7 +668,9 @@ export default function Home() {
       return;
     }
 
+    const quantity = Math.max(1, Math.min(99, Math.floor(confirmQuantity || 1)));
     setConfirmShopId(null);
+    setConfirmQuantity(1);
     setStatusMessage(t.sendingOrder);
 
     try {
@@ -678,6 +685,7 @@ export default function Home() {
           mode: store.paymentMode,
           status: "ordered",
           tableId,
+          quantity,
         }),
       });
 
@@ -880,6 +888,7 @@ export default function Home() {
 
     setSuccessItemName(null);
     setConfirmShopId(null);
+    setConfirmQuantity(1);
     setStatusMessage(t.resetting);
 
     try {
@@ -1086,16 +1095,39 @@ export default function Home() {
           <section className="w-full max-w-sm rounded-lg bg-white p-5 text-center shadow-2xl">
             <div className="mx-auto grid size-14 place-items-center rounded-md bg-[#eef4f1] text-2xl">{confirmShop.emoji}</div>
             <h2 className="mt-3 text-2xl font-bold">
-              {confirmShop.name} / {formatUsdc(calculateUsdcPrice(confirmShop.priceJpy, store.exchangeRateJpyPerUsdc))} USDC
+              {confirmShop.name} / {formatUsdc(calculateUsdcPrice(confirmShop.priceJpy * confirmQuantity, store.exchangeRateJpyPerUsdc))} USDC
             </h2>
             <p className="mt-2 text-lg font-bold text-[#17201d]">{t.confirmOrderTitle}</p>
+            <label className="mt-4 block text-left text-sm font-black text-[#53625d]" htmlFor="confirm-quantity">
+              {t.quantity}
+            </label>
+            <input
+              id="confirm-quantity"
+              className="text-field mt-2 text-center text-2xl font-black"
+              min="1"
+              max="99"
+              step="1"
+              type="number"
+              value={confirmQuantity}
+              onChange={(event) => {
+                const nextValue = Number(event.target.value);
+                setConfirmQuantity(Number.isFinite(nextValue) ? Math.max(1, Math.min(99, Math.floor(nextValue))) : 1);
+              }}
+            />
             {store.paymentMode === "arc-mainnet" ? (
               <p className="mt-2 rounded-md bg-[#e7f4ef] px-3 py-2 text-sm font-bold text-[#0f6b57]">
                 {t.payAfterServedNote}
               </p>
             ) : null}
             <div className="mt-5 grid grid-cols-2 gap-3">
-              <button className="touch-button cancel-button" type="button" onClick={() => setConfirmShopId(null)}>
+              <button
+                className="touch-button cancel-button"
+                type="button"
+                onClick={() => {
+                  setConfirmShopId(null);
+                  setConfirmQuantity(1);
+                }}
+              >
                 {t.cancel}
               </button>
               <button
@@ -1367,20 +1399,20 @@ function CustomerScreen({
       {successItemName ? (
         <section className="mt-4 rounded-lg border border-[#b8d9cf] bg-[#e7f4ef] p-5 text-center shadow-sm">
           <h2 className="text-2xl font-bold">
-            {successPayment?.status === "completed" || successPayment?.status === "paid" ? t.orderComplete : t.orderSubmitted}
+            {successPayment?.status === "completed" || successPayment?.status === "paid" ? t.orderComplete : t.orderedMessage}
           </h2>
           <p className="mt-2 text-lg font-medium">
             {successPayment?.status === "completed" ? (
               t.thankYou
             ) : (
-              `${successItemName} ${t.orderSubmitted}`
+              `${successItemName} ${t.orderedMessage}`
             )}
           </p>
           {successPayment ? (
             <div className="mt-3 rounded-lg bg-white/80 px-3 py-3 text-sm font-bold text-[#0f6b57]">
               <p>{t.orderId} {successPayment.id.slice(-8)}</p>
               <p>
-                {successPayment.itemName} / {formatUsdc(successPayment.priceUsdc)} USDC
+                {successPayment.itemName} ×{successPayment.quantity} / {formatUsdc(successPayment.priceUsdc)} USDC
               </p>
               {successPayment.transactionHash ? <p>Tx {shortHash(successPayment.transactionHash)}</p> : null}
               <p>

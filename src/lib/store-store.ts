@@ -327,6 +327,7 @@ type PurchaseChainData = {
   gasUsed?: string;
   payerAddress?: string;
   tableId?: string;
+  quantity?: number;
 };
 
 export async function recordPurchase(storeId: string, customerId: string, shopId: string, chainData: PurchaseChainData = {}) {
@@ -339,7 +340,9 @@ export async function recordPurchase(storeId: string, customerId: string, shopId
     return { ok: false as const, reason: "not_found", state };
   }
 
-  const priceUsdc = calculateUsdcPrice(shop.priceJpy, state.exchangeRateJpyPerUsdc);
+  const quantity = Math.max(1, Math.min(99, Math.floor(chainData.quantity || 1)));
+  const priceJpy = shop.priceJpy * quantity;
+  const priceUsdc = calculateUsdcPrice(priceJpy, state.exchangeRateJpyPerUsdc);
 
   const payment: PaymentRecord = {
     id: createId("pay"),
@@ -348,10 +351,10 @@ export async function recordPurchase(storeId: string, customerId: string, shopId
     customerName: customer.name,
     shopId: shop.id,
     itemName: shop.name,
-    priceJpy: shop.priceJpy,
+    priceJpy,
     priceUsdc,
     exchangeRateJpyPerUsdc: state.exchangeRateJpyPerUsdc,
-    quantity: 1,
+    quantity,
     createdAt: new Date().toISOString(),
     mode: chainData.mode || state.paymentMode,
     status: chainData.status || "ordered",
@@ -380,6 +383,7 @@ export async function createOnchainOrder(
   shopId: string,
   payerAddress: string,
   tableId?: string,
+  quantityValue = 1,
 ) {
   const normalizedStoreId = normalizeStoreId(storeId);
   const state = await readState(normalizedStoreId);
@@ -398,7 +402,9 @@ export async function createOnchainOrder(
     return { ok: false as const, reason: "payer_missing", state };
   }
 
-  const priceUsdc = calculateUsdcPrice(shop.priceJpy, state.exchangeRateJpyPerUsdc);
+  const quantity = Math.max(1, Math.min(99, Math.floor(quantityValue || 1)));
+  const priceJpy = shop.priceJpy * quantity;
+  const priceUsdc = calculateUsdcPrice(priceJpy, state.exchangeRateJpyPerUsdc);
   const now = new Date().toISOString();
   const payment: PaymentRecord = {
     id: createId("order"),
@@ -407,10 +413,10 @@ export async function createOnchainOrder(
     customerName: customer.name,
     shopId: shop.id,
     itemName: shop.name,
-    priceJpy: shop.priceJpy,
+    priceJpy,
     priceUsdc,
     exchangeRateJpyPerUsdc: state.exchangeRateJpyPerUsdc,
-    quantity: 1,
+    quantity,
     createdAt: now,
     mode: "arc-mainnet",
     status: "pending_wallet",

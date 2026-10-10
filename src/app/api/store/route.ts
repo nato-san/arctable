@@ -35,6 +35,7 @@ type StoreAction = {
       gasUsed?: string;
       payerAddress?: string;
       tableId?: string;
+      quantity?: number;
     }
   | {
       action: "create_onchain_order";
@@ -42,6 +43,7 @@ type StoreAction = {
       shopId: string;
       payerAddress: string;
       tableId?: string;
+      quantity?: number;
     }
   | {
       action: "submit_onchain_order";
@@ -165,6 +167,7 @@ export async function POST(request: NextRequest) {
         gasUsed: body.gasUsed,
         payerAddress: body.payerAddress,
         tableId: body.tableId,
+        quantity: body.quantity,
       });
       return NextResponse.json(
         { ...result, state: result.state ? publicState(result.state, body.customerId) : undefined },
@@ -173,7 +176,7 @@ export async function POST(request: NextRequest) {
     }
 
   if (body.action === "create_onchain_order") {
-    const result = await createOnchainOrder(storeId, body.customerId, body.shopId, body.payerAddress, body.tableId);
+    const result = await createOnchainOrder(storeId, body.customerId, body.shopId, body.payerAddress, body.tableId, body.quantity);
     return NextResponse.json(
       { ...result, state: result.state ? publicState(result.state, body.customerId) : undefined },
       { status: result.ok ? 200 : 400 },
