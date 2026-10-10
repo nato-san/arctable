@@ -49,6 +49,8 @@ const copy = {
     tableCountHelp: "Generate one customer order URL for each table. Put each URL into a QR code and place it on the table.",
     copyTableUrl: "Copy table URL",
     copied: "Copied",
+    transactionUrl: "Transaction URL",
+    copyTransactionUrl: "Copy transaction URL",
     managerUrl: "Private Manager URL",
     copiedUrl: "Copy URL",
     copiedManagerUrl: "Copy manager URL",
@@ -171,6 +173,8 @@ const copy = {
     tableCountHelp: "テーブルごとの注文URLを作成します。各URLをQRコードにして、対応するテーブルに置いてください。",
     copyTableUrl: "テーブルURLをコピー",
     copied: "コピーしました",
+    transactionUrl: "取引URL",
+    copyTransactionUrl: "取引URLをコピー",
     managerUrl: "管理用URL",
     copiedUrl: "URLをコピー",
     copiedManagerUrl: "管理用URLをコピー",
@@ -427,6 +431,10 @@ function calculateUsdcPrice(priceJpy: number, exchangeRateJpyPerUsdc: number) {
 
 function usdcToStoredPrice(value: number, exchangeRateJpyPerUsdc: number) {
   return Math.round(Math.max(0, value) * Math.max(1, exchangeRateJpyPerUsdc));
+}
+
+function getTransactionUrl(transactionHash: string) {
+  return `${ARC_MAINNET_EXPLORER_URL}/tx/${transactionHash}`;
 }
 
 function normalizeQuantity(value: number | "") {
@@ -1625,7 +1633,7 @@ function CustomerScreen({
                     {record.transactionHash ? (
                       <a
                         className="text-[#0f6b57] underline"
-                        href={`${ARC_MAINNET_EXPLORER_URL}/tx/${record.transactionHash}`}
+                        href={getTransactionUrl(record.transactionHash)}
                         target="_blank"
                         rel="noreferrer"
                       >
@@ -1815,7 +1823,7 @@ function MerchantScreen({
                     <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
                       <a
                         className="inline-block text-xs font-black text-[#f8d45d] underline"
-                        href={`${ARC_MAINNET_EXPLORER_URL}/tx/${record.transactionHash}`}
+                        href={getTransactionUrl(record.transactionHash)}
                         target="_blank"
                         rel="noreferrer"
                       >
@@ -1826,6 +1834,25 @@ function MerchantScreen({
                           From {shortHash(record.payerAddress)}
                         </span>
                       ) : null}
+                    </div>
+                  ) : null}
+                  {record.transactionHash ? (
+                    <div className="mt-3 rounded-md border border-white/10 bg-white/5 p-3">
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#99dac7]">{t.transactionUrl}</p>
+                      <a
+                        className="mt-2 block break-all font-mono text-xs font-black text-white/75 underline"
+                        href={getTransactionUrl(record.transactionHash)}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {getTransactionUrl(record.transactionHash)}
+                      </a>
+                      <CopyButton
+                        className="mt-3 rounded-md bg-white/10 px-3 py-2 text-xs font-black text-white"
+                        copiedLabel={t.copied}
+                        label={t.copyTransactionUrl}
+                        text={getTransactionUrl(record.transactionHash)}
+                      />
                     </div>
                   ) : null}
                 </div>
