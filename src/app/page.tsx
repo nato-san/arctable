@@ -463,6 +463,10 @@ function canCancelOrder(status: PaymentRecord["status"]) {
   return ["ordered", "served", "customer_confirmed", "pending_wallet"].includes(status);
 }
 
+function isRevenueOrder(status: PaymentRecord["status"]) {
+  return status === "paid" || status === "completed";
+}
+
 function isAddressLike(value?: string) {
   return /^0x[a-fA-F0-9]{40}$/.test(value || "");
 }
@@ -1933,7 +1937,9 @@ function MerchantScreen({
                   ) : null}
                 </div>
                 <div className="text-left sm:text-right">
-                  <p className="font-mono text-lg font-black text-[#f8d45d]">+{formatUsdc(record.priceUsdc)} USDC</p>
+                  <p className={`font-mono text-lg font-black ${isRevenueOrder(record.status) ? "text-[#f8d45d]" : "text-white/55"}`}>
+                    {isRevenueOrder(record.status) ? `+${formatUsdc(record.priceUsdc)} USDC` : statusLabel(record.status, t)}
+                  </p>
                   {record.status === "ordered" ? (
                     <button
                       className="mt-2 rounded-md bg-[#f8d45d] px-3 py-2 text-sm font-black text-[#23190b]"
