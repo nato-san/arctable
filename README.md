@@ -20,7 +20,7 @@ This creates a practical flow for small restaurants:
 ## MVP Scope
 
 - Table QR URLs: identify each table with URLs like `?store=main-store&table=1`
-- Guest view: browse menu, place order, confirm receipt, pay with Arc USDC
+- Guest view: show the table number, browse menu, place order, confirm receipt, pay with Arc USDC
 - Merchant view: receive table-numbered orders, mark `Served`, confirm `PAID`
 - Storage: local JSON in development or Upstash Redis-compatible REST storage
 - Payment: Arc Mainnet native USDC transfer
@@ -64,6 +64,8 @@ Reservations, inventory, coupons, NFTs, points, user accounts, reviews, multi-st
 - Menu photos are stored as external image URLs rather than uploaded image files.
 - Local development uses JSON files in `data/stores`. Production should use Redis-compatible storage.
 - The MVP is designed for a single restaurant workspace per shared `store` ID.
+- Guest identity and guest-side order history are stored in the customer's own browser localStorage. This MVP assumes guests scan the QR with their own phone. If a shared table device is used, the browser state should be cleared between guests or replaced later with a visit/session-based table URL.
+- Table identity comes from the table QR URL, such as `?table=1`, and is shown on the guest order screen and merchant order records.
 
 ## Development
 
