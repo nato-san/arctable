@@ -101,6 +101,33 @@ function normalizePayment(payment: PaymentRecord): PaymentRecord {
   };
 }
 
+function normalizeStock(value: unknown) {
+  if (value === null || value === undefined || value === "") {
+    return undefined;
+  }
+
+  const stock = Number(value);
+
+  return Number.isFinite(stock) ? Math.max(0, Math.floor(stock)) : undefined;
+}
+
+function hasEnoughStock(shop: Shop, quantity: number) {
+  return typeof shop.stock !== "number" || shop.stock >= quantity;
+}
+
+function applyStockDelta(shops: Shop[], shopId: string, delta: number) {
+  return shops.map((shop) => {
+    if (shop.id !== shopId || typeof shop.stock !== "number") {
+      return shop;
+    }
+
+    return {
+      ...shop,
+      stock: Math.max(0, shop.stock + delta),
+    };
+  });
+}
+
 export function createCustomer(customerId: string, count: number): Customer {
   return {
     id: customerId,
@@ -298,6 +325,7 @@ function normalizeState(parsed: Partial<StoreState>): StoreState {
       ? parsed.shops.map((shop) => ({
           ...shop,
           imageUrl: typeof shop.imageUrl === "string" ? shop.imageUrl : "",
+          stock: normalizeStock(shop.stock),
         }))
       : defaultShops;
   const migratedRecipientAddress =
@@ -382,7 +410,9 @@ export async function updateSettings(
     exchangeRateJpyPerUsdc: Math.max(1, nextSettings.exchangeRateJpyPerUsdc),
     paymentMode: nextSettings.paymentMode,
     recipientAddress: nextSettings.recipientAddress || "",
-    shops: nextSettings.shops.length > 0 ? nextSettings.shops : state.shops,
+    shops: nextSettings.shops.length > 0
+      ? nextSettings.shops.map((shop) => ({ ...shop, stock: normalizeStock(shop.stock) }))
+      : state.shops,
   };
 
   await saveState(normalizedStoreId, nextState);
@@ -411,6 +441,10 @@ export async function recordPurchase(storeId: string, customerId: string, shopId
   }
 
   const quantity = Math.max(1, Math.min(99, Math.floor(chainData.quantity || 1)));
+  if (!hasEnoughStock(shop, quantity)) {
+    return { ok: false as const, reason: "out_of_stock", state };
+  }
+
   const priceJpy = shop.priceJpy * quantity;
   const priceUsdc = calculateUsdcPrice(priceJpy, state.exchangeRateJpyPerUsdc);
 
@@ -440,6 +474,7 @@ export async function recordPurchase(storeId: string, customerId: string, shopId
     customers: state.customers.some((item) => item.id === customer.id)
       ? state.customers
       : [...state.customers, customer],
+    shops: applyStockDelta(state.shops, shop.id, -quantity),
     payments: [payment, ...state.payments],
   };
   await saveState(normalizedStoreId, nextState);
@@ -473,6 +508,10 @@ export async function createOnchainOrder(
   }
 
   const quantity = Math.max(1, Math.min(99, Math.floor(quantityValue || 1)));
+  if (!hasEnoughStock(shop, quantity)) {
+    return { ok: false as const, reason: "out_of_stock", state };
+  }
+
   const priceJpy = shop.priceJpy * quantity;
   const priceUsdc = calculateUsdcPrice(priceJpy, state.exchangeRateJpyPerUsdc);
   const now = new Date().toISOString();
@@ -499,6 +538,7 @@ export async function createOnchainOrder(
     customers: state.customers.some((item) => item.id === customer.id)
       ? state.customers
       : [...state.customers, customer],
+    shops: applyStockDelta(state.shops, shop.id, -quantity),
     payments: [payment, ...state.payments],
   };
   await saveState(normalizedStoreId, nextState);
@@ -537,11 +577,22 @@ export async function markOrderSubmitted(storeId: string, orderId: string, trans
 export async function rejectOrder(storeId: string, orderId: string, errorMessage?: string) {
   const normalizedStoreId = normalizeStoreId(storeId);
   const state = await readState(normalizedStoreId);
+  const payment = state.payments.find((item) => item.id === orderId);
+
+  if (!payment) {
+    return { ok: false as const, reason: "not_found", state };
+  }
+
+  if (["paid", "completed", "failed", "rejected"].includes(payment.status)) {
+    return { ok: false as const, reason: "not_cancellable", state };
+  }
+
   const now = new Date().toISOString();
   const nextState: StoreState = {
     ...state,
+    shops: applyStockDelta(state.shops, payment.shopId, payment.quantity),
     payments: state.payments.map((item) =>
-      item.id === orderId && item.status !== "paid" && item.status !== "completed"
+      item.id === orderId
         ? {
             ...item,
             status: "rejected",

@@ -62,6 +62,11 @@ type StoreAction = {
       errorMessage?: string;
     }
   | {
+      action: "cancel_order";
+      orderId: string;
+      errorMessage?: string;
+    }
+  | {
       action: "serve_order";
       orderId: string;
     }
@@ -220,6 +225,18 @@ export async function POST(request: NextRequest) {
   if (body.action === "reject_onchain_order") {
     const result = await rejectOrder(storeId, body.orderId, body.errorMessage);
     return NextResponse.json({ ...result, state: publicState(result.state) });
+  }
+
+  if (body.action === "cancel_order") {
+    const state = await readState(storeId);
+    if (!hasAdminAccess(state, adminToken)) {
+      return NextResponse.json({ ok: false, reason: "admin_required" }, { status: 403 });
+    }
+    const result = await rejectOrder(storeId, body.orderId, body.errorMessage || "Cancelled by store");
+    return NextResponse.json(
+      { ...result, state: result.state ? merchantState(result.state) : undefined },
+      { status: result.ok ? 200 : 400 },
+    );
   }
 
   if (body.action === "serve_order") {

@@ -5,6 +5,7 @@ export type Shop = {
   description: string;
   imageUrl?: string;
   priceJpy: number;
+  stock?: number;
   actionLabel: string;
   recipientAddress?: string;
 };

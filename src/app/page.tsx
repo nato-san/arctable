@@ -51,6 +51,8 @@ const copy = {
     copied: "Copied",
     transactionUrl: "Transaction URL",
     copyTransactionUrl: "Copy transaction URL",
+    cancelOrder: "Cancel order",
+    soldOut: "Sold Out",
     managerUrl: "Private Manager URL",
     copiedUrl: "Copy URL",
     copiedManagerUrl: "Copy manager URL",
@@ -80,6 +82,8 @@ const copy = {
     description: "Description",
     photoUrl: "Photo URL",
     tokenPrice: "USDC price",
+    stock: "Stock",
+    stockHelp: "Leave blank for unlimited stock. Set 0 to show Sold Out.",
     buttonText: "Button text",
     recipient: "Arc USDC payout address",
     recipientRequired: "A payout address is required for Arc USDC.",
@@ -120,6 +124,7 @@ const copy = {
     walletFailed: "Could not connect wallet",
     updatingOrder: "Updating order status",
     updateFailed: "Could not update order status",
+    cancelFailed: "Could not cancel order",
     recordFailed: "Could not record the update",
     saving: "Saving settings",
     saveFailed: "Could not save settings",
@@ -175,6 +180,8 @@ const copy = {
     copied: "コピーしました",
     transactionUrl: "取引URL",
     copyTransactionUrl: "取引URLをコピー",
+    cancelOrder: "キャンセル",
+    soldOut: "Sold Out",
     managerUrl: "管理用URL",
     copiedUrl: "URLをコピー",
     copiedManagerUrl: "管理用URLをコピー",
@@ -204,6 +211,8 @@ const copy = {
     description: "説明",
     photoUrl: "写真URL",
     tokenPrice: "USDC価格",
+    stock: "在庫数",
+    stockHelp: "空欄なら在庫制限なし。0にするとSold Out表示になります。",
     buttonText: "ボタン文言",
     recipient: "Arc USDC受取アドレス",
     recipientRequired: "Arc USDCで使うには受取アドレスが必要です。",
@@ -244,6 +253,7 @@ const copy = {
     walletFailed: "ウォレットに接続できませんでした",
     updatingOrder: "注文状態を更新中",
     updateFailed: "注文状態を更新できません",
+    cancelFailed: "注文をキャンセルできませんでした",
     recordFailed: "記録できませんでした",
     saving: "設定を保存中",
     saveFailed: "設定を保存できません",
@@ -439,6 +449,18 @@ function getTransactionUrl(transactionHash: string) {
 
 function normalizeQuantity(value: number | "") {
   return Math.max(1, Math.min(99, Math.floor(Number(value) || 1)));
+}
+
+function isSoldOut(shop: Shop) {
+  return typeof shop.stock === "number" && shop.stock <= 0;
+}
+
+function hasEnoughMenuStock(shop: Shop, quantity: number) {
+  return typeof shop.stock !== "number" || shop.stock >= quantity;
+}
+
+function canCancelOrder(status: PaymentRecord["status"]) {
+  return ["ordered", "served", "customer_confirmed", "pending_wallet"].includes(status);
 }
 
 function isAddressLike(value?: string) {
@@ -703,6 +725,11 @@ export default function Home() {
     }
 
     const quantity = normalizeQuantity(confirmQuantity);
+    if (!hasEnoughMenuStock(shop, quantity)) {
+      setStatusMessage(t.soldOut);
+      return;
+    }
+
     const orderCustomerId = getCustomerId(storeId);
     if (currentCustomer.id !== orderCustomerId) {
       setCurrentCustomer((current) => ({ ...current, id: orderCustomerId }));
@@ -900,6 +927,38 @@ export default function Home() {
       await refreshStore();
     } catch {
       setStatusMessage(t.recordFailed);
+    }
+  }
+
+  async function cancelStoreOrder(orderId: string) {
+    if (!storeId) {
+      return;
+    }
+
+    setStatusMessage(t.updatingOrder);
+    try {
+      const response = await fetch("/api/store", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "cancel_order",
+          storeId,
+          orderId,
+          adminToken,
+          errorMessage: "Cancelled by store",
+        }),
+      });
+
+      if (!response.ok) {
+        setStatusMessage(t.cancelFailed);
+        await refreshStore();
+        return;
+      }
+
+      setStatusMessage("");
+      await refreshStore();
+    } catch {
+      setStatusMessage(t.cancelFailed);
     }
   }
 
@@ -1125,6 +1184,7 @@ export default function Home() {
             onSelectShop={setSelectedShopId}
             onOpenTables={() => setScreen("tables")}
             onCompleteOrder={(orderId) => void completeHandOver(orderId)}
+            onCancelOrder={(orderId) => void cancelStoreOrder(orderId)}
           />
         ) : null}
 
@@ -1208,6 +1268,11 @@ export default function Home() {
                 {t.payAfterServedNote}
               </p>
             ) : null}
+            {!hasEnoughMenuStock(confirmShop, normalizeQuantity(confirmQuantity)) ? (
+              <p className="mt-2 rounded-md bg-[#fff4f1] px-3 py-2 text-sm font-bold text-[#b62e22]">
+                {t.soldOut}
+              </p>
+            ) : null}
             <div className="mt-5 grid grid-cols-2 gap-3">
               <button
                 className="touch-button cancel-button"
@@ -1223,7 +1288,8 @@ export default function Home() {
                 className="touch-button buy-button"
                 type="button"
                 disabled={
-                  store.paymentMode === "arc-mainnet" && !isAddressLike(store.recipientAddress)
+                  !hasEnoughMenuStock(confirmShop, normalizeQuantity(confirmQuantity)) ||
+                  (store.paymentMode === "arc-mainnet" && !isAddressLike(store.recipientAddress))
                 }
                 onClick={() => completePurchase(confirmShop)}
               >
@@ -1562,9 +1628,12 @@ function CustomerScreen({
         {shops.map((shop) => {
           const priceUsdc = calculateUsdcPrice(shop.priceJpy, INITIAL_EXCHANGE_RATE);
           const hasRecipient = isAddressLike(recipientAddress);
-          const canBuy = !activeOrder && (paymentMode === "arc-mainnet" ? hasRecipient : true);
+          const soldOut = isSoldOut(shop);
+          const canBuy = !activeOrder && !soldOut && (paymentMode === "arc-mainnet" ? hasRecipient : true);
           const buttonLabel =
-            paymentMode === "arc-mainnet"
+            soldOut
+              ? t.soldOut
+              : paymentMode === "arc-mainnet"
               ? !hasRecipient
                 ? t.preparing
                 : activeOrder
@@ -1597,7 +1666,12 @@ function CustomerScreen({
                 <div className="grid size-12 place-items-center rounded-md bg-[#eef4f1] text-2xl">{shop.emoji}</div>
                 <div>
                   <h2 className="text-2xl font-bold">{shop.name}</h2>
-                  <p className="text-base font-medium text-[#53625d]">{shop.description}</p>
+              <p className="text-base font-medium text-[#53625d]">{shop.description}</p>
+              {typeof shop.stock === "number" ? (
+                <p className={`mt-2 text-sm font-black ${soldOut ? "text-[#b62e22]" : "text-[#0f6b57]"}`}>
+                  {soldOut ? t.soldOut : `${t.stock}: ${shop.stock}`}
+                </p>
+              ) : null}
                 </div>
               </div>
               <p className="mt-4 text-3xl font-bold text-[#17201d]">{formatUsdc(priceUsdc)} USDC</p>
@@ -1675,6 +1749,7 @@ function MerchantScreen({
   onSelectShop,
   onOpenTables,
   onCompleteOrder,
+  onCancelOrder,
 }: {
   storeId: string;
   adminToken: string;
@@ -1699,6 +1774,7 @@ function MerchantScreen({
   onSelectShop: (shopId: string) => void;
   onOpenTables: () => void;
   onCompleteOrder: (orderId: string) => void;
+  onCancelOrder: (orderId: string) => void;
 }) {
   if (!selectedStats) {
     return null;
@@ -1865,6 +1941,15 @@ function MerchantScreen({
                       onClick={() => onCompleteOrder(record.id)}
                     >
                       Served
+                    </button>
+                  ) : null}
+                  {canCancelOrder(record.status) ? (
+                    <button
+                      className="mt-2 rounded-md bg-white/10 px-3 py-2 text-sm font-black text-white"
+                      type="button"
+                      onClick={() => onCancelOrder(record.id)}
+                    >
+                      {t.cancelOrder}
                     </button>
                   ) : null}
                 </div>
@@ -2302,6 +2387,26 @@ function SettingsScreen({
                   value={calculateUsdcPrice(shop.priceJpy, draft.exchangeRateJpyPerUsdc)}
                   onInput={(event) => handlePrice(event, shop)}
                 />
+              </div>
+              <div>
+                <label className="field-label" htmlFor={`${shop.id}-stock`}>
+                  {t.stock}
+                </label>
+                <input
+                  id={`${shop.id}-stock`}
+                  className="text-field mt-2"
+                  min="0"
+                  step="1"
+                  type="number"
+                  value={shop.stock ?? ""}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    updateDraftShop(shop.id, {
+                      stock: value === "" ? undefined : Math.max(0, Math.floor(Number(value) || 0)),
+                    });
+                  }}
+                />
+                <p className="mt-2 text-xs font-bold leading-5 text-[#53625d]">{t.stockHelp}</p>
               </div>
               <div>
                 <label className="field-label" htmlFor={`${shop.id}-action`}>
