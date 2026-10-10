@@ -9,13 +9,14 @@ import type { Customer, StoreResponse, StoreState, PaymentMode, PaymentRecord, S
 import { ARC_MAINNET_CHAIN_ID, ARC_MAINNET_EXPLORER_URL } from "@/lib/arc-mainnet-config";
 import { wagmiAdapter } from "./providers";
 
-type Screen = "home" | "customer" | "merchant" | "settings";
+type Screen = "home" | "customer" | "merchant" | "settings" | "tables";
 type Lang = "en" | "ja";
 
 const copy = {
   en: {
     back: "Back",
     settings: "Settings",
+    tables: "Tables",
     createTitle: "Set up table ordering with Arc payments",
     createDemo: "Create Store",
     setupTitle: "Setup",
@@ -42,6 +43,11 @@ const copy = {
     ordering: "Ordering",
     order: "Order",
     tableOrderUrl: "Table Order URL",
+    tableUrls: "Table URLs",
+    tableUrlSettings: "Table URL settings",
+    tableCount: "Number of tables",
+    tableCountHelp: "Generate one customer order URL for each table. Put each URL into a QR code and place it on the table.",
+    copyTableUrl: "Copy table URL",
     managerUrl: "Private Manager URL",
     copiedUrl: "Copy URL",
     copiedManagerUrl: "Copy manager URL",
@@ -130,6 +136,7 @@ const copy = {
   ja: {
     back: "戻る",
     settings: "設定",
+    tables: "テーブル",
     createTitle: "Arc決済対応のテーブルオーダーを設定",
     createDemo: "店舗を作成",
     setupTitle: "セットアップ",
@@ -156,6 +163,11 @@ const copy = {
     ordering: "注文中",
     order: "注文する",
     tableOrderUrl: "テーブル注文URL",
+    tableUrls: "テーブルURL",
+    tableUrlSettings: "テーブルURL設定",
+    tableCount: "テーブル数",
+    tableCountHelp: "テーブルごとの注文URLを作成します。各URLをQRコードにして、対応するテーブルに置いてください。",
+    copyTableUrl: "テーブルURLをコピー",
     managerUrl: "管理用URL",
     copiedUrl: "URLをコピー",
     copiedManagerUrl: "管理用URLをコピー",
@@ -284,6 +296,7 @@ const fallbackShops: Shop[] = [
 const initialState: StoreState = {
   storeName: "ArcTable Store",
   adminToken: "",
+  tableCount: 6,
   exchangeRateJpyPerUsdc: INITIAL_EXCHANGE_RATE,
   paymentMode: "demo",
   recipientAddress: "",
@@ -365,7 +378,7 @@ function getCustomerId(storeId: string) {
 }
 
 function getScreenParam(value: string | null): Screen | null {
-  return value === "customer" || value === "merchant" || value === "settings" ? value : null;
+  return value === "customer" || value === "merchant" || value === "settings" || value === "tables" ? value : null;
 }
 
 function getLangParam(value: string | null): Lang | null {
@@ -529,12 +542,12 @@ export default function Home() {
         if (!isActive) {
           return;
         }
-        if ((screen === "merchant" || screen === "settings") && nextStore.adminAuthorized === false) {
+        if ((screen === "merchant" || screen === "settings" || screen === "tables") && nextStore.adminAuthorized === false) {
           setStatusMessage(t.adminLocked);
           setScreen("home");
           return;
         }
-        if ((screen === "merchant" || screen === "settings") && !activeAdminToken) {
+        if ((screen === "merchant" || screen === "settings" || screen === "tables") && !activeAdminToken) {
           activeAdminToken = createAdminToken();
           window.localStorage.setItem(`${ADMIN_TOKEN_STORAGE_KEY}:${storeId}`, activeAdminToken);
           const params = new URLSearchParams(window.location.search);
@@ -552,6 +565,7 @@ export default function Home() {
               storeId,
               adminToken: activeAdminToken,
               storeName: nextStore.storeName,
+              tableCount: nextStore.tableCount,
               exchangeRateJpyPerUsdc: nextStore.exchangeRateJpyPerUsdc,
               paymentMode: nextStore.paymentMode,
               recipientAddress: nextStore.recipientAddress || "",
@@ -563,6 +577,7 @@ export default function Home() {
           setStore({
             storeName: nextStore.storeName,
             adminToken: activeAdminToken,
+            tableCount: nextStore.tableCount,
             exchangeRateJpyPerUsdc: nextStore.exchangeRateJpyPerUsdc,
             paymentMode: nextStore.paymentMode,
             recipientAddress: nextStore.recipientAddress,
@@ -641,6 +656,7 @@ export default function Home() {
     setStore({
       storeName: nextStore.storeName,
       adminToken,
+      tableCount: nextStore.tableCount,
       exchangeRateJpyPerUsdc: nextStore.exchangeRateJpyPerUsdc,
       paymentMode: nextStore.paymentMode,
       recipientAddress: nextStore.recipientAddress,
@@ -855,7 +871,7 @@ export default function Home() {
   }
 
   async function saveSettings(
-    nextSettings: Pick<StoreState, "storeName" | "exchangeRateJpyPerUsdc" | "paymentMode" | "recipientAddress" | "shops">,
+    nextSettings: Pick<StoreState, "storeName" | "tableCount" | "exchangeRateJpyPerUsdc" | "paymentMode" | "recipientAddress" | "shops">,
   ) {
     if (!storeId) {
       return false;
@@ -988,7 +1004,7 @@ export default function Home() {
               <button
                 className="touch-button small-button"
                 type="button"
-                onClick={() => setScreen(screen === "settings" ? "merchant" : "home")}
+                onClick={() => setScreen(screen === "settings" || screen === "tables" ? "merchant" : "home")}
               >
                 {t.back}
               </button>
@@ -1000,6 +1016,9 @@ export default function Home() {
                 <div className="flex items-center gap-2">
                   <button className="touch-button small-button hidden sm:block" type="button" onClick={() => goToCreationTop()}>
                     TOP
+                  </button>
+                  <button className="touch-button small-button hidden sm:block" type="button" onClick={() => setScreen("tables")}>
+                    {t.tables}
                   </button>
                   <button className="touch-button small-button" type="button" onClick={() => setScreen("settings")}>
                     {t.settings}
@@ -1067,8 +1086,32 @@ export default function Home() {
             t={t}
             lang={lang}
             onSelectShop={setSelectedShopId}
+            onOpenTables={() => setScreen("tables")}
             onCompleteOrder={(orderId) => void completeHandOver(orderId)}
-            onCreateNewStore={createNewStore}
+          />
+        ) : null}
+
+        {screen === "tables" ? (
+          <TablesScreen
+            store={store}
+            storeId={storeId}
+            adminToken={adminToken}
+            lang={lang}
+            statusMessage={statusMessage}
+            t={t}
+            onSaveTableCount={async (tableCount) => {
+              const didSave = await saveSettings({
+                storeName: store.storeName,
+                tableCount,
+                exchangeRateJpyPerUsdc: store.exchangeRateJpyPerUsdc,
+                paymentMode: store.paymentMode,
+                recipientAddress: store.recipientAddress || "",
+                shops: store.shops,
+              });
+              if (didSave) {
+                setStore((current) => ({ ...current, tableCount }));
+              }
+            }}
           />
         ) : null}
 
@@ -1554,8 +1597,8 @@ function MerchantScreen({
   t,
   lang,
   onSelectShop,
+  onOpenTables,
   onCompleteOrder,
-  onCreateNewStore,
 }: {
   storeId: string;
   adminToken: string;
@@ -1578,8 +1621,8 @@ function MerchantScreen({
   t: Copy;
   lang: Lang;
   onSelectShop: (shopId: string) => void;
+  onOpenTables: () => void;
   onCompleteOrder: (orderId: string) => void;
-  onCreateNewStore: () => void;
 }) {
   if (!selectedStats) {
     return null;
@@ -1627,9 +1670,9 @@ function MerchantScreen({
           <button
             className="rounded-md bg-white/10 px-3 py-3 text-sm font-black text-white"
             type="button"
-            onClick={onCreateNewStore}
+            onClick={onOpenTables}
           >
-            {t.newStore}
+            {t.tableUrls}
           </button>
         </div>
       </div>
@@ -1792,6 +1835,122 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
+function TablesScreen({
+  store,
+  storeId,
+  adminToken,
+  lang,
+  statusMessage,
+  t,
+  onSaveTableCount,
+}: {
+  store: StoreState;
+  storeId: string;
+  adminToken: string;
+  lang: Lang;
+  statusMessage: string;
+  t: Copy;
+  onSaveTableCount: (tableCount: number) => Promise<void>;
+}) {
+  const [draftTableCount, setDraftTableCount] = useState(store.tableCount || 6);
+  const tableCount = Math.max(1, Math.min(99, Math.floor(draftTableCount || 1)));
+  const managerUrl =
+    typeof window === "undefined" || !storeId || !adminToken
+      ? ""
+      : `${window.location.origin}${window.location.pathname}?store=${encodeURIComponent(storeId)}&screen=merchant&lang=${lang}&admin=${encodeURIComponent(adminToken)}`;
+
+  function tableUrl(tableNumber: number) {
+    if (typeof window === "undefined" || !storeId) {
+      return "";
+    }
+
+    return `${window.location.origin}${window.location.pathname}?store=${encodeURIComponent(storeId)}&table=${tableNumber}&screen=customer&lang=${lang}`;
+  }
+
+  return (
+    <section className="flex-1 px-4 py-5">
+      {statusMessage ? (
+        <p className="mb-4 rounded-lg border border-[#d9e3df] bg-white px-4 py-3 text-center text-sm font-bold text-[#53625d]">
+          {statusMessage}
+        </p>
+      ) : null}
+
+      <div className="rounded-lg border border-[#d9e3df] bg-white p-4 shadow-sm">
+        <h1 className="text-2xl font-black text-[#17201d]">{t.tableUrlSettings}</h1>
+        <p className="mt-2 text-sm font-medium leading-6 text-[#53625d]">{t.tableCountHelp}</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-[12rem_1fr] sm:items-end">
+          <div>
+            <label className="field-label" htmlFor="table-count">
+              {t.tableCount}
+            </label>
+            <input
+              id="table-count"
+              className="text-field mt-2 text-center text-2xl font-black"
+              min="1"
+              max="99"
+              step="1"
+              type="number"
+              value={draftTableCount}
+              onChange={(event) => {
+                const nextValue = Number(event.target.value);
+                setDraftTableCount(Number.isFinite(nextValue) ? Math.max(1, Math.min(99, Math.floor(nextValue))) : 1);
+              }}
+            />
+          </div>
+          <button
+            className="touch-button buy-button"
+            type="button"
+            onClick={() => void onSaveTableCount(tableCount)}
+          >
+            {t.save}
+          </button>
+        </div>
+      </div>
+
+      {managerUrl ? (
+        <div className="mt-4 rounded-lg border border-[#0f6b57]/30 bg-[#e7f4ef] p-4">
+          <p className="text-lg font-black text-[#0f6b57]">{t.managerUrl}</p>
+          <p className="mt-2 text-sm font-bold leading-6 text-[#53625d]">{t.saveManagerUrlWarning}</p>
+          <p className="mt-3 break-all rounded-md bg-white p-3 font-mono text-xs font-bold text-[#17201d]">{managerUrl}</p>
+          <button
+            className="mt-3 rounded-md bg-[#0f6b57] px-4 py-3 text-sm font-black text-white"
+            type="button"
+            onClick={() => void navigator.clipboard?.writeText(managerUrl)}
+          >
+            {t.copiedManagerUrl}
+          </button>
+        </div>
+      ) : null}
+
+      <div className="mt-4 grid gap-3">
+        {Array.from({ length: tableCount }, (_, index) => index + 1).map((tableNumber) => {
+          const url = tableUrl(tableNumber);
+
+          return (
+            <article key={tableNumber} className="rounded-lg border border-[#d9e3df] bg-white p-4 shadow-sm">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-lg font-black text-[#17201d]">Table {tableNumber}</p>
+                  <p className="mt-2 break-all rounded-md bg-[#f5f7f6] p-3 font-mono text-xs font-bold text-[#53625d]">
+                    {url}
+                  </p>
+                </div>
+                <button
+                  className="rounded-md bg-[#0f6b57] px-4 py-3 text-sm font-black text-white"
+                  type="button"
+                  onClick={() => void navigator.clipboard?.writeText(url)}
+                >
+                  {t.copyTableUrl}
+                </button>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function SettingsScreen({
   store,
   storeId,
@@ -1811,7 +1970,7 @@ function SettingsScreen({
   statusMessage: string;
   t: Copy;
   onSaveSettings: (
-    nextSettings: Pick<StoreState, "storeName" | "exchangeRateJpyPerUsdc" | "paymentMode" | "recipientAddress" | "shops">,
+    nextSettings: Pick<StoreState, "storeName" | "tableCount" | "exchangeRateJpyPerUsdc" | "paymentMode" | "recipientAddress" | "shops">,
   ) => Promise<void>;
   onResetDemo: () => void;
   onBackToTop: () => void;
@@ -1819,6 +1978,7 @@ function SettingsScreen({
 }) {
   const [draft, setDraft] = useState(() => ({
     storeName: store.storeName,
+    tableCount: store.tableCount || 6,
     exchangeRateJpyPerUsdc: store.exchangeRateJpyPerUsdc,
     paymentMode: store.paymentMode,
     recipientAddress: store.recipientAddress || "",
@@ -1908,6 +2068,21 @@ function SettingsScreen({
           value={draft.storeName}
           onChange={(event) => setDraft((current) => ({ ...current, storeName: event.target.value }))}
         />
+      </div>
+
+      <div className="mt-4 rounded-lg border border-[#d9e3df] bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="field-label">{t.tableUrlSettings}</p>
+            <p className="mt-2 text-sm font-medium leading-6 text-[#53625d]">{t.tableCountHelp}</p>
+          </div>
+          <a
+            className="touch-button small-button text-center"
+            href={`/?store=${storeId}&screen=tables&lang=${lang}&admin=${encodeURIComponent(adminToken)}`}
+          >
+            {t.tableUrls}
+          </a>
+        </div>
       </div>
 
       <div className="mt-4 rounded-lg border border-[#d9e3df] bg-white p-4 shadow-sm">

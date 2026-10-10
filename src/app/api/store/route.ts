@@ -76,6 +76,7 @@ type StoreAction = {
   | {
       action: "settings";
       storeName: string;
+      tableCount?: number;
       exchangeRateJpyPerUsdc: number;
       paymentMode: PaymentMode;
       recipientAddress?: string;
@@ -255,6 +256,7 @@ export async function POST(request: NextRequest) {
     const state = await updateSettings(storeId, {
       storeName: body.storeName,
       adminToken: body.adminToken || "",
+      tableCount: body.tableCount,
       exchangeRateJpyPerUsdc: body.exchangeRateJpyPerUsdc,
       paymentMode: body.paymentMode,
       recipientAddress: body.recipientAddress || "",

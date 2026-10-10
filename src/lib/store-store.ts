@@ -10,6 +10,7 @@ const STORES_DIR = path.join(DATA_DIR, "stores");
 const DEFAULT_STORE_ID = "demo-store";
 const INITIAL_BALANCE = 50;
 const INITIAL_EXCHANGE_RATE = 100;
+const INITIAL_TABLE_COUNT = 6;
 
 export const defaultShops: Shop[] = [
   {
@@ -44,6 +45,7 @@ export const defaultShops: Shop[] = [
 const initialState: StoreState = {
   storeName: "ArcTable Store",
   adminToken: "",
+  tableCount: INITIAL_TABLE_COUNT,
   exchangeRateJpyPerUsdc: INITIAL_EXCHANGE_RATE,
   paymentMode: "demo",
   recipientAddress: "",
@@ -243,6 +245,10 @@ function normalizeState(parsed: Partial<StoreState>): StoreState {
   return {
     storeName: parsed.storeName && parsed.storeName !== "ArcTable Demo" ? parsed.storeName : initialState.storeName,
     adminToken: typeof parsed.adminToken === "string" ? parsed.adminToken : "",
+    tableCount:
+      typeof parsed.tableCount === "number" && parsed.tableCount > 0
+        ? Math.min(99, Math.floor(parsed.tableCount))
+        : INITIAL_TABLE_COUNT,
     exchangeRateJpyPerUsdc:
       typeof parsed.exchangeRateJpyPerUsdc === "number" && parsed.exchangeRateJpyPerUsdc > 0
         ? parsed.exchangeRateJpyPerUsdc
@@ -300,7 +306,7 @@ export async function updateSettings(
   storeId: string,
   nextSettings: Pick<
     StoreState,
-    "storeName" | "adminToken" | "exchangeRateJpyPerUsdc" | "paymentMode" | "recipientAddress" | "shops"
+    "storeName" | "adminToken" | "tableCount" | "exchangeRateJpyPerUsdc" | "paymentMode" | "recipientAddress" | "shops"
   >,
 ) {
   const normalizedStoreId = normalizeStoreId(storeId);
@@ -309,6 +315,7 @@ export async function updateSettings(
     ...state,
     storeName: nextSettings.storeName,
     adminToken: state.adminToken || nextSettings.adminToken || "",
+    tableCount: Math.max(1, Math.min(99, Math.floor(nextSettings.tableCount || state.tableCount || INITIAL_TABLE_COUNT))),
     exchangeRateJpyPerUsdc: Math.max(1, nextSettings.exchangeRateJpyPerUsdc),
     paymentMode: nextSettings.paymentMode,
     recipientAddress: nextSettings.recipientAddress || "",
