@@ -48,6 +48,7 @@ const copy = {
     tableCount: "Number of tables",
     tableCountHelp: "Generate one customer order URL for each table. Put each URL into a QR code and place it on the table.",
     copyTableUrl: "Copy table URL",
+    copied: "Copied",
     managerUrl: "Private Manager URL",
     copiedUrl: "Copy URL",
     copiedManagerUrl: "Copy manager URL",
@@ -168,6 +169,7 @@ const copy = {
     tableCount: "テーブル数",
     tableCountHelp: "テーブルごとの注文URLを作成します。各URLをQRコードにして、対応するテーブルに置いてください。",
     copyTableUrl: "テーブルURLをコピー",
+    copied: "コピーしました",
     managerUrl: "管理用URL",
     copiedUrl: "URLをコピー",
     copiedManagerUrl: "管理用URLをコピー",
@@ -425,6 +427,10 @@ function usdcToStoredPrice(value: number, exchangeRateJpyPerUsdc: number) {
   return Math.round(Math.max(0, value) * Math.max(1, exchangeRateJpyPerUsdc));
 }
 
+function normalizeQuantity(value: number | "") {
+  return Math.max(1, Math.min(99, Math.floor(Number(value) || 1)));
+}
+
 function isAddressLike(value?: string) {
   return /^0x[a-fA-F0-9]{40}$/.test(value || "");
 }
@@ -500,7 +506,7 @@ export default function Home() {
   const [currentCustomer, setCurrentCustomer] = useState<Customer>(fallbackCustomer);
   const [selectedShopId, setSelectedShopId] = useState(fallbackShops[0].id);
   const [confirmShopId, setConfirmShopId] = useState<string | null>(null);
-  const [confirmQuantity, setConfirmQuantity] = useState(1);
+  const [confirmQuantity, setConfirmQuantity] = useState<number | "">(1);
   const [successItemName, setSuccessItemName] = useState<string | null>(null);
   const [successPaymentId, setSuccessPaymentId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string>(copy.en.loading);
@@ -651,7 +657,7 @@ export default function Home() {
       return;
     }
 
-    const customerId = screen === "customer" ? currentCustomer.id : undefined;
+    const customerId = screen === "customer" ? getCustomerId(storeId) : undefined;
     const nextStore = await fetchStore(storeId, customerId, adminToken);
     setStore({
       storeName: nextStore.storeName,
@@ -686,7 +692,11 @@ export default function Home() {
       return;
     }
 
-    const quantity = Math.max(1, Math.min(99, Math.floor(confirmQuantity || 1)));
+    const quantity = normalizeQuantity(confirmQuantity);
+    const orderCustomerId = getCustomerId(storeId);
+    if (currentCustomer.id !== orderCustomerId) {
+      setCurrentCustomer((current) => ({ ...current, id: orderCustomerId }));
+    }
     setConfirmShopId(null);
     setConfirmQuantity(1);
     setStatusMessage(t.sendingOrder);
@@ -698,7 +708,7 @@ export default function Home() {
         body: JSON.stringify({
           action: "purchase",
           storeId,
-          customerId: currentCustomer.id,
+          customerId: orderCustomerId,
           shopId: shop.id,
           mode: store.paymentMode,
           status: "ordered",
@@ -714,8 +724,21 @@ export default function Home() {
       }
 
       setSuccessItemName(shop.name);
-      const result = (await response.clone().json().catch(() => null)) as { payment?: PaymentRecord } | null;
+      const result = (await response.clone().json().catch(() => null)) as { payment?: PaymentRecord; state?: StoreResponse } | null;
       setSuccessPaymentId(result?.payment?.id || null);
+      if (result?.state) {
+        setStore({
+          storeName: result.state.storeName,
+          adminToken,
+          tableCount: result.state.tableCount,
+          exchangeRateJpyPerUsdc: result.state.exchangeRateJpyPerUsdc,
+          paymentMode: result.state.paymentMode,
+          recipientAddress: result.state.recipientAddress,
+          shops: result.state.shops,
+          customers: result.state.customers,
+          payments: result.state.payments,
+        });
+      }
       setStatusMessage("");
       await refreshStore();
     } catch {
@@ -1141,7 +1164,7 @@ export default function Home() {
           <section className="w-full max-w-sm rounded-lg bg-white p-5 text-center shadow-2xl">
             <div className="mx-auto grid size-14 place-items-center rounded-md bg-[#eef4f1] text-2xl">{confirmShop.emoji}</div>
             <h2 className="mt-3 text-2xl font-bold">
-              {confirmShop.name} / {formatUsdc(calculateUsdcPrice(confirmShop.priceJpy * confirmQuantity, store.exchangeRateJpyPerUsdc))} USDC
+              {confirmShop.name} / {formatUsdc(calculateUsdcPrice(confirmShop.priceJpy * normalizeQuantity(confirmQuantity), store.exchangeRateJpyPerUsdc))} USDC
             </h2>
             <p className="mt-2 text-lg font-bold text-[#17201d]">{t.confirmOrderTitle}</p>
             <label className="mt-4 block text-left text-sm font-black text-[#53625d]" htmlFor="confirm-quantity">
@@ -1155,10 +1178,16 @@ export default function Home() {
               step="1"
               type="number"
               value={confirmQuantity}
+              onFocus={(event) => event.currentTarget.select()}
               onChange={(event) => {
+                if (event.target.value === "") {
+                  setConfirmQuantity("");
+                  return;
+                }
                 const nextValue = Number(event.target.value);
-                setConfirmQuantity(Number.isFinite(nextValue) ? Math.max(1, Math.min(99, Math.floor(nextValue))) : 1);
+                setConfirmQuantity(Number.isFinite(nextValue) ? normalizeQuantity(nextValue) : "");
               }}
+              onBlur={() => setConfirmQuantity((current) => normalizeQuantity(current))}
             />
             {store.paymentMode === "arc-mainnet" ? (
               <p className="mt-2 rounded-md bg-[#e7f4ef] px-3 py-2 text-sm font-bold text-[#0f6b57]">
@@ -1280,13 +1309,12 @@ function HomeScreen({
         <div className="mb-4 rounded-lg border border-[#0f6b57]/30 bg-[#e7f4ef] p-4">
           <p className="text-lg font-black text-[#0f6b57]">{t.saveManagerUrlTitle}</p>
           <p className="mt-2 text-sm font-bold leading-6 text-[#53625d]">{t.saveManagerUrlWarning}</p>
-          <button
+          <CopyButton
             className="mt-3 rounded-md bg-[#0f6b57] px-4 py-3 text-sm font-black text-white"
-            type="button"
-            onClick={() => void navigator.clipboard?.writeText(managerUrl)}
-          >
-            {t.copiedManagerUrl}
-          </button>
+            copiedLabel={t.copied}
+            label={t.copiedManagerUrl}
+            text={managerUrl}
+          />
         </div>
       ) : null}
 
@@ -1330,6 +1358,40 @@ function LanguageToggle({ lang, onChange }: { lang: Lang; onChange: (lang: Lang)
         </button>
       ))}
     </div>
+  );
+}
+
+function CopyButton({
+  text,
+  label,
+  copiedLabel,
+  className,
+}: {
+  text: string;
+  label: string;
+  copiedLabel: string;
+  className: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    if (!text) {
+      return;
+    }
+
+    await navigator.clipboard?.writeText(text);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1400);
+  }
+
+  return (
+    <button
+      className={`${className} transition active:translate-y-px active:scale-[0.98] ${copied ? "ring-2 ring-[#0f6b57]/40" : ""}`}
+      type="button"
+      onClick={() => void handleCopy()}
+    >
+      {copied ? copiedLabel : label}
+    </button>
   );
 }
 
@@ -1656,17 +1718,12 @@ function MerchantScreen({
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#99dac7]">{t.tableOrderUrl}</p>
         <p className="mt-2 break-all font-mono text-sm font-black text-white/80">{storeUrl || t.readying}</p>
         <div className="mt-3 grid grid-cols-2 gap-2">
-          <button
+          <CopyButton
             className="rounded-md bg-[#f8d45d] px-3 py-3 text-sm font-black text-[#23190b]"
-            type="button"
-            onClick={() => {
-              if (storeUrl) {
-                void navigator.clipboard?.writeText(storeUrl);
-              }
-            }}
-          >
-            {t.copiedUrl}
-          </button>
+            copiedLabel={t.copied}
+            label={t.copiedUrl}
+            text={storeUrl}
+          />
           <button
             className="rounded-md bg-white/10 px-3 py-3 text-sm font-black text-white"
             type="button"
@@ -1681,17 +1738,12 @@ function MerchantScreen({
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#f8d45d]">{t.managerUrl}</p>
         <p className="mt-2 text-sm font-bold leading-6 text-white/80">{t.saveManagerUrlWarning}</p>
         <p className="mt-2 break-all font-mono text-sm font-black text-white/80">{managerUrl || t.readying}</p>
-        <button
+        <CopyButton
           className="mt-3 rounded-md bg-[#f8d45d] px-3 py-3 text-sm font-black text-[#23190b]"
-          type="button"
-          onClick={() => {
-            if (managerUrl) {
-              void navigator.clipboard?.writeText(managerUrl);
-            }
-          }}
-        >
-          {t.copiedManagerUrl}
-        </button>
+          copiedLabel={t.copied}
+          label={t.copiedManagerUrl}
+          text={managerUrl}
+        />
       </div>
 
       <div className="mt-4 flex gap-2 overflow-x-auto pb-2">
@@ -1912,13 +1964,12 @@ function TablesScreen({
           <p className="text-lg font-black text-[#0f6b57]">{t.managerUrl}</p>
           <p className="mt-2 text-sm font-bold leading-6 text-[#53625d]">{t.saveManagerUrlWarning}</p>
           <p className="mt-3 break-all rounded-md bg-white p-3 font-mono text-xs font-bold text-[#17201d]">{managerUrl}</p>
-          <button
+          <CopyButton
             className="mt-3 rounded-md bg-[#0f6b57] px-4 py-3 text-sm font-black text-white"
-            type="button"
-            onClick={() => void navigator.clipboard?.writeText(managerUrl)}
-          >
-            {t.copiedManagerUrl}
-          </button>
+            copiedLabel={t.copied}
+            label={t.copiedManagerUrl}
+            text={managerUrl}
+          />
         </div>
       ) : null}
 
@@ -1935,13 +1986,12 @@ function TablesScreen({
                     {url}
                   </p>
                 </div>
-                <button
+                <CopyButton
                   className="rounded-md bg-[#0f6b57] px-4 py-3 text-sm font-black text-white"
-                  type="button"
-                  onClick={() => void navigator.clipboard?.writeText(url)}
-                >
-                  {t.copyTableUrl}
-                </button>
+                  copiedLabel={t.copied}
+                  label={t.copyTableUrl}
+                  text={url}
+                />
               </div>
             </article>
           );
@@ -2048,13 +2098,12 @@ function SettingsScreen({
           <p className="text-lg font-black text-[#0f6b57]">{t.saveManagerUrlTitle}</p>
           <p className="mt-2 text-sm font-bold leading-6 text-[#53625d]">{t.saveManagerUrlWarning}</p>
           <p className="mt-3 break-all rounded-md bg-white p-3 font-mono text-xs font-bold text-[#17201d]">{managerUrl}</p>
-          <button
-            className="mt-3 rounded-md bg-[#0f6b57] px-4 py-3 text-sm font-black text-white"
-            type="button"
-            onClick={() => void navigator.clipboard?.writeText(managerUrl)}
-          >
-            {t.copiedManagerUrl}
-          </button>
+            <CopyButton
+              className="mt-3 rounded-md bg-[#0f6b57] px-4 py-3 text-sm font-black text-white"
+              copiedLabel={t.copied}
+              label={t.copiedManagerUrl}
+              text={managerUrl}
+            />
         </div>
       ) : null}
 
