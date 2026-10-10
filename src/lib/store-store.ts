@@ -111,18 +111,20 @@ export function createCustomer(customerId: string, count: number): Customer {
 }
 
 function getRedisConfig() {
-  const url =
+  const rawUrl =
     process.env.UPSTASH_REDIS_REST_URL ||
     process.env.KV_REST_API_URL ||
     process.env.STORAGE_URL ||
     process.env.STORAGE_REST_API_URL ||
     process.env.STORAGE_KV_REST_API_URL;
-  const token =
+  const rawToken =
     process.env.UPSTASH_REDIS_REST_TOKEN ||
     process.env.KV_REST_API_TOKEN ||
     process.env.STORAGE_TOKEN ||
     process.env.STORAGE_REST_API_TOKEN ||
     process.env.STORAGE_KV_REST_API_TOKEN;
+  const url = normalizeEnvValue(rawUrl);
+  const token = normalizeEnvValue(rawToken).replace(/^Bearer\s+/i, "");
 
   if (!url || !token) {
     return null;
@@ -133,6 +135,27 @@ function getRedisConfig() {
 
 function getRedisKey(storeId: string) {
   return `arctable:restaurant:${normalizeStoreId(storeId)}`;
+}
+
+function getSafeRedisHost() {
+  const redis = getRedisConfig();
+
+  if (!redis) {
+    return "";
+  }
+
+  try {
+    return new URL(redis.url).host;
+  } catch {
+    return "invalid-url";
+  }
+}
+
+function normalizeEnvValue(value?: string) {
+  const trimmed = (value || "").trim().replace(/^['"]|['"]$/g, "");
+  const markdownLinkMatch = trimmed.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+
+  return markdownLinkMatch?.[2]?.trim() || trimmed;
 }
 
 function getStoreFile(storeId: string) {
@@ -166,7 +189,47 @@ async function runRedisCommand<T>(operation: string, command: string[]) {
 
   await assertRedisResponse(response, operation);
 
-  return (await response.json()) as { result: T };
+  const payload = (await response.json()) as { result?: T; error?: string };
+
+  if (payload.error) {
+    throw new Error(`redis_${operation}_failed:error:${payload.error.slice(0, 120)}`);
+  }
+
+  return payload as { result: T };
+}
+
+export async function getStorageDiagnostics() {
+  const redis = getRedisConfig();
+
+  if (!redis) {
+    return {
+      ok: true,
+      mode: "local-file",
+      redisConfigured: false,
+      redisHost: "",
+    };
+  }
+
+  try {
+    const response = await runRedisCommand<string>("diagnostics", ["PING"]);
+    const result = response?.result;
+
+    return {
+      ok: result === "PONG",
+      mode: "upstash-redis",
+      redisConfigured: true,
+      redisHost: getSafeRedisHost(),
+      result,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      mode: "upstash-redis",
+      redisConfigured: true,
+      redisHost: getSafeRedisHost(),
+      reason: error instanceof Error ? error.message : "unknown",
+    };
+  }
 }
 
 async function readStoredState(storeId: string) {

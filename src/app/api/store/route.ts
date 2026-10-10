@@ -5,6 +5,7 @@ import {
   createOnchainOrder,
   deleteStoreState,
   ensureCustomer,
+  getStorageDiagnostics,
   markOrderSubmitted,
   readState,
   recordPurchase,
@@ -127,6 +128,11 @@ export async function GET(request: NextRequest) {
     const customerId = request.nextUrl.searchParams.get("customerId");
     const adminToken = request.nextUrl.searchParams.get("admin");
     const storeId = getStoreId(request);
+
+    if (request.nextUrl.searchParams.get("diagnostics") === "1") {
+      return NextResponse.json(await getStorageDiagnostics());
+    }
+
     const state = await readState(storeId);
     const isAdmin = hasAdminAccess(state, adminToken);
 
