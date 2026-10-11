@@ -1176,19 +1176,25 @@ export default function Home() {
     setScreen(screen === "settings" || screen === "tables" ? "merchant" : "home");
   }
 
+  const showHeaderBackButton = screen !== "customer";
+
   return (
     <main className="min-h-dvh bg-[#f5f7f6] text-[#17201d]">
       <div className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col">
         {screen !== "home" ? (
           <header className="sticky top-0 z-20 border-b border-[#d9e3df] bg-[#f5f7f6]/95 px-4 py-3 backdrop-blur">
             <div className="flex items-center justify-between gap-3">
-              <button
-                className="touch-button small-button"
-                type="button"
-                onClick={goBackFromHeader}
-              >
-                {t.back}
-              </button>
+              {showHeaderBackButton ? (
+                <button
+                  className="touch-button small-button"
+                  type="button"
+                  onClick={goBackFromHeader}
+                >
+                  {t.back}
+                </button>
+              ) : (
+                <div className="w-[4.75rem]" aria-hidden="true" />
+              )}
               <div className="text-center">
                 <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#0f6b57]">ArcTable</p>
                 <p className="max-w-[13rem] truncate text-lg font-bold sm:max-w-none">{store.storeName}</p>
