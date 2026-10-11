@@ -11,7 +11,7 @@ import type { Customer, StoreResponse, StoreState, PaymentMode, PaymentRecord, S
 import { ARC_MAINNET_CHAIN_ID, ARC_MAINNET_EXPLORER_URL } from "@/lib/arc-mainnet-config";
 import { wagmiAdapter } from "./providers";
 
-type Screen = "home" | "customer" | "merchant" | "settings" | "tables";
+type Screen = "home" | "customer" | "merchant" | "settings" | "tables" | "customer-help" | "settings-help" | "merchant-help";
 type Lang = "en" | "ja";
 
 const copy = {
@@ -47,6 +47,10 @@ const copy = {
     tableOrderUrl: "Table Order URL",
     tableUrls: "Table URLs",
     tableUrlSettings: "Table URL settings",
+    howToUse: "How to use",
+    customerHelp: "Customer guide",
+    settingsHelp: "Setup guide",
+    merchantHelp: "Orders & sales guide",
     tableCount: "Number of tables",
     tableCountHelp: "Generate one customer order URL for each table. Put each URL into a QR code and place it on the table.",
     qrCode: "QR code",
@@ -178,6 +182,10 @@ const copy = {
     tableOrderUrl: "テーブル注文URL",
     tableUrls: "テーブルURL",
     tableUrlSettings: "テーブルURL設定",
+    howToUse: "使い方",
+    customerHelp: "お客様向け",
+    settingsHelp: "設定方法",
+    merchantHelp: "受注・売上",
     tableCount: "テーブル数",
     tableCountHelp: "テーブルごとの注文URLを作成します。各URLをQRコードにして、対応するテーブルに置いてください。",
     qrCode: "QRコード",
@@ -402,7 +410,15 @@ function getCustomerId(storeId: string) {
 }
 
 function getScreenParam(value: string | null): Screen | null {
-  return value === "customer" || value === "merchant" || value === "settings" || value === "tables" ? value : null;
+  return value === "customer" ||
+    value === "merchant" ||
+    value === "settings" ||
+    value === "tables" ||
+    value === "customer-help" ||
+    value === "settings-help" ||
+    value === "merchant-help"
+    ? value
+    : null;
 }
 
 function getLangParam(value: string | null): Lang | null {
@@ -553,6 +569,7 @@ export default function Home() {
   const [successPaymentId, setSuccessPaymentId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string>(copy.en.loading);
   const [walletMessage, setWalletMessage] = useState("");
+  const isManagerScreen = screen === "merchant" || screen === "settings" || screen === "tables" || screen === "settings-help" || screen === "merchant-help";
 
   useEffect(() => {
     const activeStoreId = getStoreId();
@@ -580,7 +597,7 @@ export default function Home() {
     }
 
     let isActive = true;
-    const customerId = screen === "customer" ? getCustomerId(storeId) : undefined;
+    const customerId = screen === "customer" || screen === "customer-help" ? getCustomerId(storeId) : undefined;
 
     async function refresh() {
       try {
@@ -590,12 +607,12 @@ export default function Home() {
         if (!isActive) {
           return;
         }
-        if ((screen === "merchant" || screen === "settings" || screen === "tables") && nextStore.adminAuthorized === false) {
+        if (isManagerScreen && nextStore.adminAuthorized === false) {
           setStatusMessage(t.adminLocked);
           setScreen("home");
           return;
         }
-        if ((screen === "merchant" || screen === "settings" || screen === "tables") && !activeAdminToken) {
+        if (isManagerScreen && !activeAdminToken) {
           activeAdminToken = createAdminToken();
           window.localStorage.setItem(`${ADMIN_TOKEN_STORAGE_KEY}:${storeId}`, activeAdminToken);
           const params = new URLSearchParams(window.location.search);
@@ -649,7 +666,7 @@ export default function Home() {
     }
 
     void refresh();
-    const shouldKeepRefreshing = screen === "customer" || screen === "merchant";
+    const shouldKeepRefreshing = screen === "customer" || screen === "customer-help" || screen === "merchant";
     const timer = shouldKeepRefreshing ? window.setInterval(refresh, 5000) : null;
 
     return () => {
@@ -658,7 +675,7 @@ export default function Home() {
         window.clearInterval(timer);
       }
     };
-  }, [storeId, screen, lang, t.adminLocked, t.loadFailed]);
+  }, [storeId, screen, lang, t.adminLocked, t.loadFailed, isManagerScreen]);
 
   const effectiveSelectedShopId = store.shops.some((shop) => shop.id === selectedShopId)
     ? selectedShopId
@@ -699,7 +716,7 @@ export default function Home() {
       return;
     }
 
-    const customerId = screen === "customer" ? getCustomerId(storeId) : undefined;
+    const customerId = screen === "customer" || screen === "customer-help" ? getCustomerId(storeId) : undefined;
     const nextStore = await fetchStore(storeId, customerId, adminToken);
     setStore({
       storeName: nextStore.storeName,
@@ -1101,6 +1118,22 @@ export default function Home() {
     setScreen("settings");
   }
 
+  function goBackFromHeader() {
+    if (screen === "customer-help") {
+      setScreen("customer");
+      return;
+    }
+    if (screen === "settings-help") {
+      setScreen("settings");
+      return;
+    }
+    if (screen === "merchant-help") {
+      setScreen("merchant");
+      return;
+    }
+    setScreen(screen === "settings" || screen === "tables" ? "merchant" : "home");
+  }
+
   return (
     <main className="min-h-dvh bg-[#f5f7f6] text-[#17201d]">
       <div className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col">
@@ -1110,7 +1143,7 @@ export default function Home() {
               <button
                 className="touch-button small-button"
                 type="button"
-                onClick={() => setScreen(screen === "settings" || screen === "tables" ? "merchant" : "home")}
+                onClick={goBackFromHeader}
               >
                 {t.back}
               </button>
@@ -1125,6 +1158,9 @@ export default function Home() {
                   </button>
                   <button className="touch-button small-button hidden sm:block" type="button" onClick={() => setScreen("tables")}>
                     {t.tables}
+                  </button>
+                  <button className="touch-button small-button hidden sm:block" type="button" onClick={() => setScreen("merchant-help")}>
+                    {t.howToUse}
                   </button>
                   <button className="touch-button small-button" type="button" onClick={() => setScreen("settings")}>
                     {t.settings}
@@ -1176,6 +1212,7 @@ export default function Home() {
             }}
             onPickShop={(shopId) => setConfirmShopId(shopId)}
             onConfirmServedOrder={(order) => void confirmServedAndPay(order)}
+            onOpenHelp={() => setScreen("customer-help")}
           />
         ) : null}
 
@@ -1193,6 +1230,7 @@ export default function Home() {
             lang={lang}
             onSelectShop={setSelectedShopId}
             onOpenTables={() => setScreen("tables")}
+            onOpenHelp={() => setScreen("merchant-help")}
             onCompleteOrder={(orderId) => void completeHandOver(orderId)}
             onCancelOrder={(orderId) => void cancelStoreOrder(orderId)}
           />
@@ -1237,10 +1275,15 @@ export default function Home() {
               }
             }}
             onResetDemo={() => void resetDemo()}
+            onOpenHelp={() => setScreen("settings-help")}
             onBackToTop={goToCreationTop}
             onDeleteStore={() => void deleteCurrentStore()}
           />
         ) : null}
+
+        {screen === "customer-help" ? <CustomerHelpScreen t={t} paymentMode={store.paymentMode} /> : null}
+        {screen === "settings-help" ? <SettingsHelpScreen t={t} /> : null}
+        {screen === "merchant-help" ? <MerchantHelpScreen t={t} paymentMode={store.paymentMode} /> : null}
       </div>
 
       {confirmShop ? (
@@ -1485,6 +1528,185 @@ function CopyButton({
   );
 }
 
+function HelpPage({
+  title,
+  intro,
+  sections,
+  dark = false,
+}: {
+  title: string;
+  intro: string;
+  sections: { title: string; items: string[] }[];
+  dark?: boolean;
+}) {
+  return (
+    <section className={`flex-1 px-4 py-5 ${dark ? "bg-[#17201d] text-white" : ""}`}>
+      <div className={`rounded-lg border p-5 shadow-sm ${dark ? "border-white/10 bg-[#22312c]" : "border-[#d9e3df] bg-white"}`}>
+        <p className={`text-xs font-black uppercase tracking-[0.18em] ${dark ? "text-[#99dac7]" : "text-[#0f6b57]"}`}>
+          ArcTable
+        </p>
+        <h1 className="mt-2 text-3xl font-black">{title}</h1>
+        <p className={`mt-3 text-base font-bold leading-7 ${dark ? "text-white/75" : "text-[#53625d]"}`}>{intro}</p>
+      </div>
+
+      <div className="mt-4 grid gap-4">
+        {sections.map((section, sectionIndex) => (
+          <article
+            key={section.title}
+            className={`rounded-lg border p-5 shadow-sm ${dark ? "border-white/10 bg-[#101715]" : "border-[#d9e3df] bg-white"}`}
+          >
+            <div className="flex items-start gap-3">
+              <span
+                className={`grid size-9 shrink-0 place-items-center rounded-md text-sm font-black ${
+                  dark ? "bg-[#f8d45d] text-[#23190b]" : "bg-[#e7f4ef] text-[#0f6b57]"
+                }`}
+              >
+                {sectionIndex + 1}
+              </span>
+              <div>
+                <h2 className="text-xl font-black">{section.title}</h2>
+                <div className={`mt-3 grid gap-2 text-base font-bold leading-7 ${dark ? "text-white/75" : "text-[#53625d]"}`}>
+                  {section.items.map((item) => (
+                    <p key={item}>{item}</p>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function CustomerHelpScreen({ t, paymentMode }: { t: Copy; paymentMode: PaymentMode }) {
+  const isJa = t.back === "戻る";
+
+  return (
+    <HelpPage
+      title={isJa ? "注文の使い方" : "How to order"}
+      intro={
+        isJa
+          ? "テーブルのQRから開いた画面で、商品を選んで注文します。支払いは商品が届いた後に進みます。"
+          : "Open the table QR page, choose an item, and place the order. Payment happens after the item is served."
+      }
+      sections={[
+        {
+          title: isJa ? "商品を選ぶ" : "Choose an item",
+          items: isJa
+            ? ["メニューから商品を選びます。", "数量を入力してOKすると、店舗に注文が送信されます。", "Sold Outの商品は注文できません。"]
+            : ["Select an item from the menu.", "Enter the quantity and confirm to send the order to the store.", "Sold Out items cannot be ordered."],
+        },
+        {
+          title: isJa ? "届いたら確認" : "Confirm when served",
+          items: isJa
+            ? ["店舗が商品を提供済みにすると、受け取り確認ボタンが出ます。", "商品が届いたことを確認してからボタンを押してください。"]
+            : ["After the store marks the order as served, a receipt confirmation button appears.", "Tap it only after the item has arrived."],
+        },
+        {
+          title: isJa ? "支払い" : "Payment",
+          items:
+            paymentMode === "arc-mainnet"
+              ? isJa
+                ? ["受け取り確認後、ウォレットでArc USDC支払いを確認します。", "支払いが完了すると、店舗側にもPAIDとして反映されます。"]
+                : ["After confirming receipt, approve the Arc USDC payment in your wallet.", "When payment completes, the store dashboard updates to PAID."]
+              : isJa
+                ? ["テスト会計ではウォレットは使いません。", "受け取り確認後、支払済みとして店舗側に反映されます。"]
+                : ["Test checkout does not use a wallet.", "After receipt confirmation, the store dashboard marks the order as paid."],
+        },
+      ]}
+    />
+  );
+}
+
+function SettingsHelpScreen({ t }: { t: Copy }) {
+  const isJa = t.back === "戻る";
+
+  return (
+    <HelpPage
+      title={isJa ? "店舗設定の使い方" : "Store setup guide"}
+      intro={
+        isJa
+          ? "店舗名、決済方法、メニュー、テーブルQRを設定します。最後に保存すると店舗画面へ反映されます。"
+          : "Set the store name, payment mode, menu items, and table QR URLs. Save changes to update the store dashboard."
+      }
+      sections={[
+        {
+          title: isJa ? "管理用URLを保存" : "Save the manager URL",
+          items: isJa
+            ? ["ログイン機能はありません。", "管理用URLを紛失すると店舗管理画面に戻れません。", "お客様用QRには管理用URLを使わないでください。"]
+            : ["There is no login system.", "If the manager URL is lost, the store dashboard cannot be reopened.", "Do not use the manager URL for customer QR codes."],
+        },
+        {
+          title: isJa ? "決済方法を選ぶ" : "Choose payment mode",
+          items: isJa
+            ? ["テスト会計はウォレットなしで動作確認できます。", "Arc USDCを使う場合は、Arc Mainnetの受取アドレスを入力します。"]
+            : ["Test checkout lets you demo the flow without a wallet.", "For Arc USDC, enter the payout address on Arc Mainnet."],
+        },
+        {
+          title: isJa ? "メニューを設定" : "Edit menu items",
+          items: isJa
+            ? ["商品名、説明、写真URL、USDC価格、在庫数を入力します。", "在庫数を空欄にすると無制限、0にするとSold Outになります。", "写真URLは公開されている画像URLを使います。"]
+            : ["Enter each item name, description, photo URL, USDC price, and stock.", "Leave stock blank for unlimited, or set it to 0 to show Sold Out.", "Photo URLs should be public image URLs."],
+        },
+        {
+          title: isJa ? "テーブルQRを作る" : "Create table QR codes",
+          items: isJa
+            ? ["テーブルURL画面でテーブル数を設定します。", "各テーブルのQRを表示し、印刷またはスクリーンショットでテーブルに置きます。"]
+            : ["Set the number of tables on the Table URLs page.", "Use each table QR code for printouts or screenshots placed on the matching table."],
+        },
+      ]}
+    />
+  );
+}
+
+function MerchantHelpScreen({ t, paymentMode }: { t: Copy; paymentMode: PaymentMode }) {
+  const isJa = t.back === "戻る";
+
+  return (
+    <HelpPage
+      title={isJa ? "受注・売上の使い方" : "Orders & sales guide"}
+      intro={
+        isJa
+          ? "店舗画面では注文の受付、提供済みへの変更、キャンセル、売上確認ができます。"
+          : "The store dashboard handles incoming orders, serving status, cancellations, and paid sales totals."
+      }
+      dark
+      sections={[
+        {
+          title: isJa ? "注文を受ける" : "Receive orders",
+          items: isJa
+            ? ["お客様がQRから注文すると、Ordersにテーブル番号付きで表示されます。", "注文内容、数量、時刻、注文IDを確認できます。"]
+            : ["When a customer orders from a table QR, it appears in Orders with the table number.", "You can check the item, quantity, time, and order ID."],
+        },
+        {
+          title: isJa ? "提供済みにする" : "Mark as served",
+          items: isJa
+            ? ["商品をテーブルへ届けたらServedを押します。", "その後、お客様の画面で受け取り確認と支払いに進めます。"]
+            : ["Tap Served after bringing the item to the table.", "The customer can then confirm receipt and proceed to payment."],
+        },
+        {
+          title: isJa ? "キャンセル" : "Cancel orders",
+          items: isJa
+            ? ["未提供・未決済の注文はキャンセルできます。", "在庫切れやお客様からのキャンセル依頼に使います。", "キャンセルした注文は売上に含まれません。"]
+            : ["Unserved and unpaid orders can be cancelled.", "Use this for out-of-stock situations or customer cancellation requests.", "Cancelled orders are not counted as sales."],
+        },
+        {
+          title: isJa ? "売上と取引確認" : "Sales and transaction checks",
+          items:
+            paymentMode === "arc-mainnet"
+              ? isJa
+                ? ["Paid Totalは支払い完了した注文だけを集計します。", "Arc USDC支払い後は、注文内に取引URLが表示されます。"]
+                : ["Paid Total only counts completed paid orders.", "After Arc USDC payment, the order shows a transaction URL."]
+              : isJa
+                ? ["テスト会計では、受け取り確認後に支払済みとして集計されます。", "本番デモ前にはArc USDCモードと受取アドレスを確認してください。"]
+                : ["In test checkout, orders are counted as paid after receipt confirmation.", "Before the final demo, check Arc USDC mode and the payout address."],
+        },
+      ]}
+    />
+  );
+}
+
 function CustomerScreen({
   customer,
   paymentMode,
@@ -1504,6 +1726,7 @@ function CustomerScreen({
   onConnectWallet,
   onPickShop,
   onConfirmServedOrder,
+  onOpenHelp,
   onCloseSuccess,
 }: {
   customer: Customer;
@@ -1524,6 +1747,7 @@ function CustomerScreen({
   onConnectWallet: () => void;
   onPickShop: (shopId: string) => void;
   onConfirmServedOrder: (order: PaymentRecord) => void;
+  onOpenHelp: () => void;
   onCloseSuccess: () => void;
 }) {
   const customerOrders = orderHistory
@@ -1533,10 +1757,17 @@ function CustomerScreen({
   return (
     <section className="flex-1 px-4 py-5">
       <div className="mb-4 rounded-lg border border-[#d9e3df] bg-white p-4 shadow-sm">
-        <p className="text-lg font-bold text-[#17201d]">Table {tableId}</p>
-        <p className="mt-2 text-sm font-medium text-[#53625d]">
-          {paymentMode === "arc-mainnet" ? t.payAfterServed : t.demoMode}
-        </p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-lg font-bold text-[#17201d]">Table {tableId}</p>
+            <p className="mt-2 text-sm font-medium text-[#53625d]">
+              {paymentMode === "arc-mainnet" ? t.payAfterServed : t.demoMode}
+            </p>
+          </div>
+          <button className="touch-button small-button" type="button" onClick={onOpenHelp}>
+            {t.howToUse}
+          </button>
+        </div>
       </div>
 
       {paymentMode === "demo" ? (
@@ -1758,6 +1989,7 @@ function MerchantScreen({
   lang,
   onSelectShop,
   onOpenTables,
+  onOpenHelp,
   onCompleteOrder,
   onCancelOrder,
 }: {
@@ -1783,6 +2015,7 @@ function MerchantScreen({
   lang: Lang;
   onSelectShop: (shopId: string) => void;
   onOpenTables: () => void;
+  onOpenHelp: () => void;
   onCompleteOrder: (orderId: string) => void;
   onCancelOrder: (orderId: string) => void;
 }) {
@@ -1832,6 +2065,23 @@ function MerchantScreen({
             {t.tableUrls}
           </button>
         </div>
+      </div>
+
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <button
+          className="rounded-md bg-white/10 px-3 py-3 text-sm font-black text-white"
+          type="button"
+          onClick={onOpenHelp}
+        >
+          {t.merchantHelp}
+        </button>
+        <button
+          className="rounded-md bg-white/10 px-3 py-3 text-sm font-black text-white"
+          type="button"
+          onClick={onOpenTables}
+        >
+          {t.tableUrls}
+        </button>
       </div>
 
       <div className="mt-3 rounded-lg border border-[#f8d45d]/40 bg-[#2a2f25] p-4">
@@ -2167,6 +2417,7 @@ function SettingsScreen({
   t,
   onSaveSettings,
   onResetDemo,
+  onOpenHelp,
   onBackToTop,
   onDeleteStore,
 }: {
@@ -2180,6 +2431,7 @@ function SettingsScreen({
     nextSettings: Pick<StoreState, "storeName" | "tableCount" | "exchangeRateJpyPerUsdc" | "paymentMode" | "recipientAddress" | "shops">,
   ) => Promise<void>;
   onResetDemo: () => void;
+  onOpenHelp: () => void;
   onBackToTop: () => void;
   onDeleteStore: () => void;
 }) {
@@ -2263,6 +2515,10 @@ function SettingsScreen({
             />
         </div>
       ) : null}
+
+      <button className="touch-button small-button mb-4 w-full text-left" type="button" onClick={onOpenHelp}>
+        {t.settingsHelp}
+      </button>
 
       <div className="rounded-lg border border-[#d9e3df] bg-white p-4 shadow-sm">
         <label className="field-label" htmlFor="store-name">
