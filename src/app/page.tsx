@@ -1353,6 +1353,13 @@ export default function Home() {
                   </button>
                   <LanguageToggle lang={lang} onChange={changeLanguage} />
                 </div>
+              ) : screen === "settings" ? (
+                <div className="flex items-center gap-2">
+                  <button className="touch-button small-button" type="button" onClick={() => setScreen("settings-help")}>
+                    {t.settingsHelp}
+                  </button>
+                  <LanguageToggle lang={lang} onChange={changeLanguage} />
+                </div>
               ) : (
                 <LanguageToggle lang={lang} onChange={changeLanguage} />
               )}
@@ -1464,7 +1471,6 @@ export default function Home() {
               }
             }}
             onResetDemo={() => void resetDemo()}
-            onOpenHelp={() => setScreen("settings-help")}
             onBackToTop={goToCreationTop}
             onDeleteStore={() => void deleteCurrentStore()}
           />
@@ -2627,7 +2633,6 @@ function SettingsScreen({
   t,
   onSaveSettings,
   onResetDemo,
-  onOpenHelp,
   onBackToTop,
   onDeleteStore,
 }: {
@@ -2641,7 +2646,6 @@ function SettingsScreen({
     nextSettings: Pick<StoreState, "storeName" | "tableCount" | "customerTheme" | "exchangeRateJpyPerUsdc" | "paymentMode" | "paymentTiming" | "recipientAddress" | "shops">,
   ) => Promise<void>;
   onResetDemo: () => void;
-  onOpenHelp: () => void;
   onBackToTop: () => void;
   onDeleteStore: () => void;
 }) {
@@ -2727,10 +2731,6 @@ function SettingsScreen({
             />
         </div>
       ) : null}
-
-      <button className="touch-button small-button mb-4 w-full text-left" type="button" onClick={onOpenHelp}>
-        {t.settingsHelp}
-      </button>
 
       <div className="rounded-lg border border-[#d9e3df] bg-white p-4 shadow-sm">
         <label className="field-label" htmlFor="store-name">
