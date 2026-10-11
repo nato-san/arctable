@@ -28,6 +28,14 @@ const copy = {
     storeId: "Store ID",
     customerView: "Customer View",
     merchantView: "Merchant View",
+    paidTotal: "Paid Total",
+    orders: "Orders",
+    currentOrder: "Current Order",
+    served: "Served",
+    testCheckoutLabel: "Test checkout",
+    arcOnchainLabel: "Arc Mainnet / On-chain",
+    tableLabel: "Table",
+    orderShort: "Order",
     settlementToken: "Settlement token",
     payAfterServed: "Pay with Arc USDC after service",
     demoMode: "Test checkout",
@@ -47,7 +55,7 @@ const copy = {
     tableOrderUrl: "Table Order URL",
     tableUrls: "Table URLs",
     tableUrlSettings: "Table URL settings",
-    tableSettings: "Table settings",
+    tableSettings: "Table URL settings",
     howToUse: "How to use",
     customerHelp: "Customer guide",
     settingsHelp: "Setup guide",
@@ -168,6 +176,14 @@ const copy = {
     storeId: "店舗ID",
     customerView: "注文画面",
     merchantView: "店舗画面",
+    paidTotal: "支払済み合計",
+    orders: "注文",
+    currentOrder: "現在の注文",
+    served: "提供済み",
+    testCheckoutLabel: "テスト会計",
+    arcOnchainLabel: "Arc Mainnet / オンチェーン",
+    tableLabel: "テーブル",
+    orderShort: "注文",
     settlementToken: "決済トークン",
     payAfterServed: "提供後にArc USDCで支払い",
     demoMode: "テスト会計",
@@ -187,7 +203,7 @@ const copy = {
     tableOrderUrl: "テーブル注文URL",
     tableUrls: "テーブルURL",
     tableUrlSettings: "テーブルURL設定",
-    tableSettings: "テーブル設定",
+    tableSettings: "テーブルURL設定",
     howToUse: "使い方",
     customerHelp: "お客様向け",
     settingsHelp: "設定方法",
@@ -1727,13 +1743,13 @@ function MerchantHelpScreen({ t, paymentMode }: { t: Copy; paymentMode: PaymentM
         {
           title: isJa ? "注文を受ける" : "Receive orders",
           items: isJa
-            ? ["お客様がQRから注文すると、Ordersにテーブル番号付きで表示されます。", "注文内容、数量、時刻、注文IDを確認できます。"]
+            ? ["お客様がQRから注文すると、注文一覧にテーブル番号付きで表示されます。", "注文内容、数量、時刻、注文IDを確認できます。"]
             : ["When a customer orders from a table QR, it appears in Orders with the table number.", "You can check the item, quantity, time, and order ID."],
         },
         {
           title: isJa ? "提供済みにする" : "Mark as served",
           items: isJa
-            ? ["商品をテーブルへ届けたらServedを押します。", "その後、お客様の画面で受け取り確認と支払いに進めます。"]
+            ? ["商品をテーブルへ届けたら提供済みを押します。", "その後、お客様の画面で受け取り確認と支払いに進めます。"]
             : ["Tap Served after bringing the item to the table.", "The customer can then confirm receipt and proceed to payment."],
         },
         {
@@ -1747,7 +1763,7 @@ function MerchantHelpScreen({ t, paymentMode }: { t: Copy; paymentMode: PaymentM
           items:
             paymentMode === "arc-mainnet"
               ? isJa
-                ? ["Paid Totalは支払い完了した注文だけを集計します。", "Arc USDC支払い後は、注文内に取引URLが表示されます。"]
+                ? ["支払済み合計は、支払い完了した注文だけを集計します。", "Arc USDC支払い後は、注文内に取引URLが表示されます。"]
                 : ["Paid Total only counts completed paid orders.", "After Arc USDC payment, the order shows a transaction URL."]
               : isJa
                 ? ["テスト会計では、受け取り確認後に支払済みとして集計されます。", "本番デモ前にはArc USDCモードと受取アドレスを確認してください。"]
@@ -1817,7 +1833,7 @@ function CustomerScreen({
       <div className="mb-4 rounded-lg border border-[#d9e3df] bg-white p-4 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-lg font-bold text-[#17201d]">Table {tableId}</p>
+            <p className="text-lg font-bold text-[#17201d]">{t.tableLabel} {tableId}</p>
             <p className="mt-2 text-sm font-medium text-[#53625d]">
               {paymentMode === "arc-mainnet" ? t.payAfterServed : t.demoMode}
             </p>
@@ -1860,12 +1876,12 @@ function CustomerScreen({
 
       {activeOrder ? (
         <section className="mt-4 rounded-lg border border-[#d9e3df] bg-white p-5 shadow-sm">
-          <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#0f6b57]">Current Order</p>
+          <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#0f6b57]">{t.currentOrder}</p>
           <div className="mt-3 flex items-center justify-between gap-3">
             <div>
               <h2 className="text-2xl font-bold">{activeOrder.itemName}</h2>
               <p className="mt-1 text-sm font-medium text-[#53625d]">
-                Order {activeOrder.id.slice(-8)} / {formatUsdc(activeOrder.priceUsdc)} USDC
+                {t.orderShort} {activeOrder.id.slice(-8)} / {formatUsdc(activeOrder.priceUsdc)} USDC
               </p>
             </div>
             <span className="rounded-full bg-[#eef4f1] px-3 py-2 text-sm font-bold text-[#53625d]">
@@ -2004,7 +2020,7 @@ function CustomerScreen({
                   <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs font-bold text-[#53625d]">
                     <span>{formatTime(record.createdAt)}</span>
                     <span>{t.orderId} {record.id.slice(-8)}</span>
-                    {record.tableId ? <span>Table {record.tableId}</span> : null}
+                    {record.tableId ? <span>{t.tableLabel} {record.tableId}</span> : null}
                     {record.transactionHash ? (
                       <a
                         className="text-[#0f6b57] underline"
@@ -2092,11 +2108,11 @@ function MerchantScreen({
   return (
     <section className="flex-1 bg-[#17201d] px-4 py-5 text-white">
       <div className="rounded-lg border border-white/10 bg-[#22312c] p-4">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#99dac7]">Paid Total</p>
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#99dac7]">{t.paidTotal}</p>
         <div className="mt-2 flex items-end justify-between gap-4">
           <p className="text-4xl font-black">{formatUsdc(total)} USDC</p>
           <p className="pb-1 text-sm font-bold text-white/70">
-            {paymentMode === "arc-mainnet" ? "Arc Mainnet / On-chain" : "Test checkout"}
+            {paymentMode === "arc-mainnet" ? t.arcOnchainLabel : t.testCheckoutLabel}
           </p>
         </div>
       </div>
@@ -2146,7 +2162,7 @@ function MerchantScreen({
       </div>
 
       <div className={`mt-3 grid gap-3 ${paymentMode === "arc-mainnet" ? "sm:grid-cols-2" : ""}`}>
-        <Metric label={t.network} value={paymentMode === "arc-mainnet" ? "Arc Mainnet / On-chain" : "Test checkout"} />
+        <Metric label={t.network} value={paymentMode === "arc-mainnet" ? t.arcOnchainLabel : t.testCheckoutLabel} />
         {paymentMode === "arc-mainnet" ? (
           <Metric
             label={t.receive}
@@ -2163,7 +2179,7 @@ function MerchantScreen({
 
       <section className="mt-5 rounded-lg border border-white/10 bg-[#101715]">
         <div className="border-b border-white/10 px-4 py-3">
-          <h2 className="text-sm font-black uppercase tracking-[0.16em] text-[#99dac7]">Orders</h2>
+          <h2 className="text-sm font-black uppercase tracking-[0.16em] text-[#99dac7]">{t.orders}</h2>
         </div>
         <div className="divide-y divide-white/10">
           {allRecords.length > 0 ? (
@@ -2177,8 +2193,8 @@ function MerchantScreen({
                   </p>
                   <p className="text-xs font-bold text-[#99dac7]">{formatUsdc(record.priceUsdc)} USDC</p>
                   <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 font-mono text-xs font-black text-white/65">
-                    <span>Order {record.id.slice(-8)}</span>
-                    {record.tableId ? <span>Table {record.tableId}</span> : null}
+                    <span>{t.orderShort} {record.id.slice(-8)}</span>
+                    {record.tableId ? <span>{t.tableLabel} {record.tableId}</span> : null}
                     {record.recipientAddress ? <span>To {shortHash(record.recipientAddress)}</span> : null}
                     {record.blockNumber ? <span>Block {record.blockNumber}</span> : null}
                   </div>
@@ -2229,7 +2245,7 @@ function MerchantScreen({
                       type="button"
                       onClick={() => onCompleteOrder(record.id)}
                     >
-                      Served
+                      {t.served}
                     </button>
                   ) : null}
                   {canCancelOrder(record.status) ? (
@@ -2414,7 +2430,7 @@ function TablesScreen({
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
                 <TableQrCode url={url} label={`${t.qrCode}: Table ${tableNumber}`} />
                 <div className="min-w-0 flex-1">
-                  <p className="text-lg font-black text-[#17201d]">Table {tableNumber}</p>
+                  <p className="text-lg font-black text-[#17201d]">{t.tableLabel} {tableNumber}</p>
                   <p className="mt-1 text-sm font-bold text-[#53625d]">{t.scanQr}</p>
                   <p className="mt-2 break-all rounded-md bg-[#f5f7f6] p-3 font-mono text-xs font-bold text-[#53625d]">
                     {url}
