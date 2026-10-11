@@ -47,6 +47,7 @@ const copy = {
     tableOrderUrl: "Table Order URL",
     tableUrls: "Table URLs",
     tableUrlSettings: "Table URL settings",
+    tableSettings: "Table settings",
     howToUse: "How to use",
     customerHelp: "Customer guide",
     settingsHelp: "Setup guide",
@@ -186,6 +187,7 @@ const copy = {
     tableOrderUrl: "テーブル注文URL",
     tableUrls: "テーブルURL",
     tableUrlSettings: "テーブルURL設定",
+    tableSettings: "テーブル設定",
     howToUse: "使い方",
     customerHelp: "お客様向け",
     settingsHelp: "設定方法",
@@ -1196,9 +1198,6 @@ export default function Home() {
                   <button className="touch-button small-button hidden sm:block" type="button" onClick={() => goToCreationTop()}>
                     TOP
                   </button>
-                  <button className="touch-button small-button" type="button" onClick={() => setScreen("tables")}>
-                    {t.tables}
-                  </button>
                   <button className="touch-button small-button hidden sm:block" type="button" onClick={() => setScreen("merchant-help")}>
                     {t.howToUse}
                   </button>
@@ -1270,7 +1269,7 @@ export default function Home() {
             t={t}
             lang={lang}
             onSelectShop={setSelectedShopId}
-            onOpenHelp={() => setScreen("merchant-help")}
+            onOpenTables={() => setScreen("tables")}
             onCompleteOrder={(orderId) => void completeHandOver(orderId)}
             onCancelOrder={(orderId) => void cancelStoreOrder(orderId)}
           />
@@ -2043,7 +2042,7 @@ function MerchantScreen({
   t,
   lang,
   onSelectShop,
-  onOpenHelp,
+  onOpenTables,
   onCompleteOrder,
   onCancelOrder,
 }: {
@@ -2068,7 +2067,7 @@ function MerchantScreen({
   t: Copy;
   lang: Lang;
   onSelectShop: (shopId: string) => void;
-  onOpenHelp: () => void;
+  onOpenTables: () => void;
   onCompleteOrder: (orderId: string) => void;
   onCancelOrder: (orderId: string) => void;
 }) {
@@ -2100,9 +2099,9 @@ function MerchantScreen({
         <button
           className="rounded-md bg-white/10 px-3 py-3 text-sm font-black text-white"
           type="button"
-          onClick={onOpenHelp}
+          onClick={onOpenTables}
         >
-          {t.merchantHelp}
+          {t.tableSettings}
         </button>
       </div>
 
