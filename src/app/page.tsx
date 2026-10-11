@@ -1196,7 +1196,7 @@ export default function Home() {
                   <button className="touch-button small-button hidden sm:block" type="button" onClick={() => goToCreationTop()}>
                     TOP
                   </button>
-                  <button className="touch-button small-button hidden sm:block" type="button" onClick={() => setScreen("tables")}>
+                  <button className="touch-button small-button" type="button" onClick={() => setScreen("tables")}>
                     {t.tables}
                   </button>
                   <button className="touch-button small-button hidden sm:block" type="button" onClick={() => setScreen("merchant-help")}>
@@ -1270,7 +1270,6 @@ export default function Home() {
             t={t}
             lang={lang}
             onSelectShop={setSelectedShopId}
-            onOpenTables={() => setScreen("tables")}
             onOpenHelp={() => setScreen("merchant-help")}
             onCompleteOrder={(orderId) => void completeHandOver(orderId)}
             onCancelOrder={(orderId) => void cancelStoreOrder(orderId)}
@@ -2044,7 +2043,6 @@ function MerchantScreen({
   t,
   lang,
   onSelectShop,
-  onOpenTables,
   onOpenHelp,
   onCompleteOrder,
   onCancelOrder,
@@ -2070,7 +2068,6 @@ function MerchantScreen({
   t: Copy;
   lang: Lang;
   onSelectShop: (shopId: string) => void;
-  onOpenTables: () => void;
   onOpenHelp: () => void;
   onCompleteOrder: (orderId: string) => void;
   onCancelOrder: (orderId: string) => void;
@@ -2082,10 +2079,6 @@ function MerchantScreen({
   const allRecords = shopStats
     .flatMap(({ records }) => records)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  const storeUrl =
-    typeof window === "undefined" || !storeId
-      ? ""
-      : `${window.location.origin}${window.location.pathname}?store=${encodeURIComponent(storeId)}&table=1&screen=customer&lang=${lang}`;
   const managerUrl =
     typeof window === "undefined" || !storeId || !adminToken
       ? ""
@@ -2103,40 +2096,13 @@ function MerchantScreen({
         </div>
       </div>
 
-      <div className="mt-3 rounded-lg border border-white/10 bg-[#22312c] p-4">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#99dac7]">{t.tableOrderUrl}</p>
-        <p className="mt-2 break-all font-mono text-sm font-black text-white/80">{storeUrl || t.readying}</p>
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <CopyButton
-            className="rounded-md bg-[#f8d45d] px-3 py-3 text-sm font-black text-[#23190b]"
-            copiedLabel={t.copied}
-            label={t.copiedUrl}
-            text={storeUrl}
-          />
-          <button
-            className="rounded-md bg-white/10 px-3 py-3 text-sm font-black text-white"
-            type="button"
-            onClick={onOpenTables}
-          >
-            {t.tableUrls}
-          </button>
-        </div>
-      </div>
-
-      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+      <div className="mt-3 grid gap-2">
         <button
           className="rounded-md bg-white/10 px-3 py-3 text-sm font-black text-white"
           type="button"
           onClick={onOpenHelp}
         >
           {t.merchantHelp}
-        </button>
-        <button
-          className="rounded-md bg-white/10 px-3 py-3 text-sm font-black text-white"
-          type="button"
-          onClick={onOpenTables}
-        >
-          {t.tableUrls}
         </button>
       </div>
 
