@@ -30,6 +30,7 @@ export type PaymentRecord = {
   quantity: number;
   createdAt: string;
   mode: "demo" | "arc-mainnet";
+  paymentTiming?: PaymentTiming;
   status:
     | "ordered"
     | "served"
@@ -54,6 +55,7 @@ export type PaymentRecord = {
 };
 
 export type PaymentMode = "demo" | "arc-mainnet";
+export type PaymentTiming = "prepaid" | "after-served";
 
 export type CustomerTheme = {
   backgroundColor: string;
@@ -67,6 +69,7 @@ export type StoreState = {
   customerTheme?: CustomerTheme;
   exchangeRateJpyPerUsdc: number;
   paymentMode: PaymentMode;
+  paymentTiming: PaymentTiming;
   recipientAddress?: string;
   shops: Shop[];
   customers: Customer[];

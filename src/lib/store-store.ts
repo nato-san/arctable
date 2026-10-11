@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { createPublicClient, formatEther, getAddress, http, parseEther, type Hash } from "viem";
 import { arcMainnet } from "./arc-mainnet";
-import type { Customer, CustomerTheme, StoreState, PaymentMode, PaymentRecord, Shop } from "./store-types";
+import type { Customer, CustomerTheme, StoreState, PaymentMode, PaymentRecord, PaymentTiming, Shop } from "./store-types";
 
 const DATA_DIR = process.env.VERCEL ? path.join(os.tmpdir(), "arctable-data") : path.join(process.cwd(), "data");
 const STORES_DIR = path.join(DATA_DIR, "stores");
@@ -53,6 +53,7 @@ const initialState: StoreState = {
   customerTheme: DEFAULT_CUSTOMER_THEME,
   exchangeRateJpyPerUsdc: INITIAL_EXCHANGE_RATE,
   paymentMode: "demo",
+  paymentTiming: "after-served",
   recipientAddress: "",
   shops: defaultShops,
   customers: [],
@@ -89,14 +90,21 @@ function toUsdcAmount(value: number) {
 
 function normalizePayment(payment: PaymentRecord): PaymentRecord {
   const status = (payment as { status: string }).status;
+  const mode: PaymentMode = payment.mode === "arc-mainnet" ? "arc-mainnet" : payment.mode === "demo" ? "demo" : "arc-mainnet";
 
   if (status === "pending") {
-    return { ...payment, status: payment.transactionHash ? "submitted" : "pending_wallet" };
+    return {
+      ...payment,
+      mode,
+      paymentTiming: normalizePaymentTiming(payment.paymentTiming, mode),
+      status: payment.transactionHash ? "submitted" : "pending_wallet",
+    };
   }
 
   return {
     ...payment,
-    mode: payment.mode === "arc-mainnet" ? "arc-mainnet" : payment.mode === "demo" ? "demo" : "arc-mainnet",
+    mode,
+    paymentTiming: normalizePaymentTiming(payment.paymentTiming, mode),
     status: status === "confirmed" ? "paid" : status === "recorded" ? "ordered" : payment.status,
     priceUsdc: typeof payment.priceUsdc === "number" ? payment.priceUsdc : 0,
     exchangeRateJpyPerUsdc:
@@ -127,6 +135,14 @@ function normalizeCustomerTheme(value: unknown): CustomerTheme {
     backgroundColor: normalizeHexColor(theme.backgroundColor, DEFAULT_CUSTOMER_THEME.backgroundColor),
     buttonColor: normalizeHexColor(theme.buttonColor, DEFAULT_CUSTOMER_THEME.buttonColor),
   };
+}
+
+function normalizePaymentTiming(value: unknown, paymentMode: PaymentMode): PaymentTiming {
+  if (paymentMode !== "arc-mainnet") {
+    return "after-served";
+  }
+
+  return value === "prepaid" ? "prepaid" : "after-served";
 }
 
 function hasEnoughStock(shop: Shop, quantity: number) {
@@ -350,6 +366,7 @@ function normalizeState(parsed: Partial<StoreState>): StoreState {
     typeof parsed.recipientAddress === "string" && parsed.recipientAddress
       ? parsed.recipientAddress
       : shops.find((shop) => isAddressLike(shop.recipientAddress))?.recipientAddress || "";
+  const paymentMode: PaymentMode = parsed.paymentMode === "arc-mainnet" ? "arc-mainnet" : "demo";
 
   return {
     storeName: parsed.storeName && parsed.storeName !== "ArcTable Demo" ? parsed.storeName : initialState.storeName,
@@ -363,7 +380,8 @@ function normalizeState(parsed: Partial<StoreState>): StoreState {
       typeof parsed.exchangeRateJpyPerUsdc === "number" && parsed.exchangeRateJpyPerUsdc > 0
         ? parsed.exchangeRateJpyPerUsdc
         : initialState.exchangeRateJpyPerUsdc,
-    paymentMode: parsed.paymentMode === "arc-mainnet" ? "arc-mainnet" : "demo",
+    paymentMode,
+    paymentTiming: normalizePaymentTiming(parsed.paymentTiming, paymentMode),
     recipientAddress: migratedRecipientAddress,
     shops,
     customers,
@@ -416,7 +434,7 @@ export async function updateSettings(
   storeId: string,
   nextSettings: Pick<
     StoreState,
-    "storeName" | "adminToken" | "tableCount" | "customerTheme" | "exchangeRateJpyPerUsdc" | "paymentMode" | "recipientAddress" | "shops"
+    "storeName" | "adminToken" | "tableCount" | "customerTheme" | "exchangeRateJpyPerUsdc" | "paymentMode" | "paymentTiming" | "recipientAddress" | "shops"
   >,
 ) {
   const normalizedStoreId = normalizeStoreId(storeId);
@@ -429,6 +447,7 @@ export async function updateSettings(
     customerTheme: normalizeCustomerTheme(nextSettings.customerTheme),
     exchangeRateJpyPerUsdc: Math.max(1, nextSettings.exchangeRateJpyPerUsdc),
     paymentMode: nextSettings.paymentMode,
+    paymentTiming: normalizePaymentTiming(nextSettings.paymentTiming, nextSettings.paymentMode),
     recipientAddress: nextSettings.recipientAddress || "",
     shops: nextSettings.shops.length > 0
       ? nextSettings.shops.map((shop) => ({ ...shop, stock: normalizeStock(shop.stock) }))
@@ -481,6 +500,7 @@ export async function recordPurchase(storeId: string, customerId: string, shopId
     quantity,
     createdAt: new Date().toISOString(),
     mode: chainData.mode || state.paymentMode,
+    paymentTiming: normalizePaymentTiming(state.paymentTiming, chainData.mode || state.paymentMode),
     status: chainData.status || "ordered",
     recipientAddress: state.recipientAddress,
     payerAddress: chainData.payerAddress,
@@ -548,6 +568,7 @@ export async function createOnchainOrder(
     quantity,
     createdAt: now,
     mode: "arc-mainnet",
+    paymentTiming: "prepaid",
     status: "pending_wallet",
     recipientAddress: state.recipientAddress,
     payerAddress,

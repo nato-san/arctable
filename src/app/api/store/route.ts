@@ -16,7 +16,7 @@ import {
   updateSettings,
   verifyOnchainOrder,
 } from "@/lib/store-store";
-import type { CustomerTheme, PaymentMode, PaymentRecord, Shop } from "@/lib/store-types";
+import type { CustomerTheme, PaymentMode, PaymentRecord, PaymentTiming, Shop } from "@/lib/store-types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -86,6 +86,7 @@ type StoreAction = {
       customerTheme?: CustomerTheme;
       exchangeRateJpyPerUsdc: number;
       paymentMode: PaymentMode;
+      paymentTiming?: PaymentTiming;
       recipientAddress?: string;
       shops: Shop[];
     }
@@ -284,6 +285,7 @@ export async function POST(request: NextRequest) {
       customerTheme: body.customerTheme,
       exchangeRateJpyPerUsdc: body.exchangeRateJpyPerUsdc,
       paymentMode: body.paymentMode,
+      paymentTiming: body.paymentTiming || "after-served",
       recipientAddress: body.recipientAddress || "",
       shops: body.shops,
     });

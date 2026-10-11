@@ -7,7 +7,7 @@ import { formatEther, parseEther, type Address } from "viem";
 import { useAppKit } from "@reown/appkit/react";
 import { sendTransaction, switchChain } from "wagmi/actions";
 import { useAccount, useBalance } from "wagmi";
-import type { Customer, CustomerTheme, StoreResponse, StoreState, PaymentMode, PaymentRecord, Shop, ShopStats } from "@/lib/store-types";
+import type { Customer, CustomerTheme, StoreResponse, StoreState, PaymentMode, PaymentRecord, PaymentTiming, Shop, ShopStats } from "@/lib/store-types";
 import { ARC_MAINNET_CHAIN_ID, ARC_MAINNET_EXPLORER_URL } from "@/lib/arc-mainnet-config";
 import { wagmiAdapter } from "./providers";
 
@@ -94,8 +94,13 @@ const copy = {
     orderHistory: "Order history",
     storeName: "Store name",
     paymentMode: "Payment mode",
+    paymentTiming: "Payment timing",
+    prepaid: "Pay before order",
+    afterServed: "Pay after served",
     selected: "Selected",
-    arcModeHelp: "With Arc USDC, the customer pays from their wallet on Arc Mainnet after the order is served.",
+    arcModeHelp: "With Arc USDC, the customer pays from their wallet on Arc Mainnet. Choose when payment is required below.",
+    prepaidHelp: "The customer pays before the order is accepted. The merchant receives it as PAID.",
+    afterServedHelp: "The customer orders first, then pays after the merchant marks the order as served.",
     demoModeHelp: "Use this mode for demos without wallets. Orders become paid after the customer confirms receipt.",
     menu: "Menu",
     emoji: "Icon",
@@ -123,6 +128,7 @@ const copy = {
     confirmOrderTitle: "Order with USDC?",
     quantity: "Quantity",
     orderedMessage: "Order submitted",
+    payBeforeOrderNote: "Payment is made with Arc USDC before the order is sent to the store.",
     payAfterServedNote: "Payment is made with Arc USDC after the item is served.",
     cancel: "Cancel",
     readying: "Preparing",
@@ -242,8 +248,13 @@ const copy = {
     orderHistory: "注文履歴",
     storeName: "店舗名",
     paymentMode: "支払いモード",
+    paymentTiming: "支払いタイミング",
+    prepaid: "事前会計",
+    afterServed: "提供後会計",
     selected: "選択中",
-    arcModeHelp: "Arc USDCでは、商品提供後にお客様のウォレットからArc Mainnetで支払います。",
+    arcModeHelp: "Arc USDCでは、お客様のウォレットからArc Mainnetで支払います。支払いタイミングは下で選べます。",
+    prepaidHelp: "お客様が先に支払い、支払い完了後に店舗へ注文が入ります。",
+    afterServedHelp: "先に注文を受け、店舗が提供済みにした後でお客様が支払います。",
     demoModeHelp: "ウォレットを使わないデモ用です。お客様が受け取り確認をすると支払済みになります。",
     menu: "メニュー",
     emoji: "アイコン",
@@ -271,6 +282,7 @@ const copy = {
     confirmOrderTitle: "USDCで注文しますか？",
     quantity: "数量",
     orderedMessage: "注文しました",
+    payBeforeOrderNote: "店舗へ注文を送る前にArc USDCで支払います。",
     payAfterServedNote: "支払いは商品提供後にArc USDCで行います。",
     cancel: "キャンセル",
     readying: "準備中",
@@ -363,6 +375,7 @@ const initialState: StoreState = {
   customerTheme: DEFAULT_CUSTOMER_THEME,
   exchangeRateJpyPerUsdc: INITIAL_EXCHANGE_RATE,
   paymentMode: "demo",
+  paymentTiming: "after-served",
   recipientAddress: "",
   shops: fallbackShops,
   customers: [],
@@ -687,6 +700,7 @@ export default function Home() {
               customerTheme: normalizeTheme(nextStore.customerTheme),
               exchangeRateJpyPerUsdc: nextStore.exchangeRateJpyPerUsdc,
               paymentMode: nextStore.paymentMode,
+              paymentTiming: nextStore.paymentTiming,
               recipientAddress: nextStore.recipientAddress || "",
               shops: nextStore.shops,
             }),
@@ -700,6 +714,7 @@ export default function Home() {
             customerTheme: normalizeTheme(nextStore.customerTheme),
             exchangeRateJpyPerUsdc: nextStore.exchangeRateJpyPerUsdc,
             paymentMode: nextStore.paymentMode,
+            paymentTiming: nextStore.paymentTiming,
             recipientAddress: nextStore.recipientAddress,
             shops: nextStore.shops,
             customers: nextStore.customers,
@@ -780,6 +795,7 @@ export default function Home() {
       customerTheme: normalizeTheme(nextStore.customerTheme),
       exchangeRateJpyPerUsdc: nextStore.exchangeRateJpyPerUsdc,
       paymentMode: nextStore.paymentMode,
+      paymentTiming: nextStore.paymentTiming,
       recipientAddress: nextStore.recipientAddress,
       shops: nextStore.shops,
       customers: nextStore.customers,
@@ -813,6 +829,17 @@ export default function Home() {
       return;
     }
 
+    if (store.paymentMode === "arc-mainnet" && store.paymentTiming === "prepaid" && (!walletAddress || !isConnected)) {
+      setStatusMessage(t.walletRequired);
+      await open({ view: "Connect" });
+      return;
+    }
+
+    if (store.paymentMode === "arc-mainnet" && store.paymentTiming === "prepaid" && !isAddressLike(store.recipientAddress)) {
+      setStatusMessage(t.recipientMissing);
+      return;
+    }
+
     const orderCustomerId = getCustomerId(storeId);
     if (currentCustomer.id !== orderCustomerId) {
       setCurrentCustomer((current) => ({ ...current, id: orderCustomerId }));
@@ -820,6 +847,101 @@ export default function Home() {
     setConfirmShopId(null);
     setConfirmQuantity(1);
     setStatusMessage(t.sendingOrder);
+
+    if (store.paymentMode === "arc-mainnet" && store.paymentTiming === "prepaid") {
+      let orderId = "";
+      try {
+        const orderResponse = await fetch("/api/store", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "create_onchain_order",
+            storeId,
+            customerId: orderCustomerId,
+            shopId: shop.id,
+            payerAddress: walletAddress,
+            tableId,
+            quantity,
+          }),
+        });
+
+        const orderResult = (await orderResponse.clone().json().catch(() => null)) as { payment?: PaymentRecord } | null;
+        orderId = orderResult?.payment?.id || "";
+
+        if (!orderResponse.ok || !orderId) {
+          setStatusMessage(t.orderFailed);
+          await refreshStore();
+          return;
+        }
+
+        setStatusMessage(t.walletConfirm);
+        const transactionHash = await sendArcPayment(
+          store.recipientAddress,
+          orderResult?.payment?.priceUsdc || calculateUsdcPrice(shop.priceJpy * quantity, store.exchangeRateJpyPerUsdc),
+          walletAddress || null,
+        );
+
+        setStatusMessage(t.arcConfirm);
+        await fetch("/api/store", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "submit_onchain_order",
+            storeId,
+            orderId,
+            transactionHash,
+          }),
+        });
+
+        const [{ createPublicClient, http }, { arcMainnet }] = await Promise.all([
+          import("viem"),
+          import("@/lib/arc-mainnet"),
+        ]);
+        const publicClient = createPublicClient({
+          chain: arcMainnet,
+          transport: http(),
+        });
+        await publicClient.waitForTransactionReceipt({ hash: transactionHash });
+
+        const verifyResponse = await fetch("/api/store", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "verify_onchain_order",
+            storeId,
+            orderId,
+            transactionHash,
+          }),
+        });
+
+        if (!verifyResponse.ok) {
+          setStatusMessage(t.paymentFailed);
+          await refreshStore();
+          return;
+        }
+
+        setSuccessItemName(shop.name);
+        setSuccessPaymentId(orderId);
+        setStatusMessage("");
+        await refreshStore();
+      } catch (error) {
+        if (orderId) {
+          await fetch("/api/store", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "reject_onchain_order",
+              storeId,
+              orderId,
+              errorMessage: error instanceof Error ? error.message : "wallet rejected",
+            }),
+          }).catch(() => undefined);
+        }
+        setStatusMessage(t.paymentFailed);
+        await refreshStore();
+      }
+      return;
+    }
 
     try {
       const response = await fetch("/api/store", {
@@ -854,6 +976,7 @@ export default function Home() {
           customerTheme: normalizeTheme(result.state.customerTheme),
           exchangeRateJpyPerUsdc: result.state.exchangeRateJpyPerUsdc,
           paymentMode: result.state.paymentMode,
+          paymentTiming: result.state.paymentTiming,
           recipientAddress: result.state.recipientAddress,
           shops: result.state.shops,
           customers: result.state.customers,
@@ -989,17 +1112,18 @@ export default function Home() {
     }
   }
 
-  async function completeHandOver(orderId: string) {
+  async function completeHandOver(order: PaymentRecord) {
     if (!storeId) {
       return;
     }
 
+    const action = order.status === "paid" ? "complete_order" : "serve_order";
     setStatusMessage(t.updatingOrder);
     try {
       const response = await fetch("/api/store", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "serve_order", storeId, orderId, adminToken }),
+        body: JSON.stringify({ action, storeId, orderId: order.id, adminToken }),
       });
 
       if (!response.ok) {
@@ -1047,7 +1171,7 @@ export default function Home() {
   }
 
   async function saveSettings(
-    nextSettings: Pick<StoreState, "storeName" | "tableCount" | "customerTheme" | "exchangeRateJpyPerUsdc" | "paymentMode" | "recipientAddress" | "shops">,
+    nextSettings: Pick<StoreState, "storeName" | "tableCount" | "customerTheme" | "exchangeRateJpyPerUsdc" | "paymentMode" | "paymentTiming" | "recipientAddress" | "shops">,
   ) {
     if (!storeId) {
       return false;
@@ -1057,6 +1181,7 @@ export default function Home() {
       ...nextSettings,
       customerTheme: normalizeTheme(nextSettings.customerTheme),
       recipientAddress: nextSettings.paymentMode === "arc-mainnet" ? nextSettings.recipientAddress : "",
+      paymentTiming: nextSettings.paymentMode === "arc-mainnet" ? nextSettings.paymentTiming : "after-served",
     };
     setStore((current) => ({ ...current, ...settingsToSave }));
     setStatusMessage(t.saving);
@@ -1253,6 +1378,7 @@ export default function Home() {
           <CustomerScreen
             customer={currentCustomer}
             paymentMode={store.paymentMode}
+            paymentTiming={store.paymentTiming}
             recipientAddress={store.recipientAddress}
             customerTheme={normalizeTheme(store.customerTheme)}
             shops={store.shops}
@@ -1292,7 +1418,7 @@ export default function Home() {
             lang={lang}
             onSelectShop={setSelectedShopId}
             onOpenTables={() => setScreen("tables")}
-            onCompleteOrder={(orderId) => void completeHandOver(orderId)}
+            onCompleteOrder={(order) => void completeHandOver(order)}
             onCancelOrder={(orderId) => void cancelStoreOrder(orderId)}
           />
         ) : null}
@@ -1312,6 +1438,7 @@ export default function Home() {
                 customerTheme: normalizeTheme(store.customerTheme),
                 exchangeRateJpyPerUsdc: store.exchangeRateJpyPerUsdc,
                 paymentMode: store.paymentMode,
+                paymentTiming: store.paymentTiming,
                 recipientAddress: store.recipientAddress || "",
                 shops: store.shops,
               });
@@ -1344,7 +1471,7 @@ export default function Home() {
         ) : null}
 
         {screen === "customer-help" ? (
-          <CustomerHelpScreen t={t} paymentMode={store.paymentMode} customerTheme={normalizeTheme(store.customerTheme)} />
+          <CustomerHelpScreen t={t} paymentMode={store.paymentMode} paymentTiming={store.paymentTiming} customerTheme={normalizeTheme(store.customerTheme)} />
         ) : null}
         {screen === "settings-help" ? <SettingsHelpScreen t={t} /> : null}
         {screen === "merchant-help" ? <MerchantHelpScreen t={t} paymentMode={store.paymentMode} /> : null}
@@ -1382,7 +1509,7 @@ export default function Home() {
             />
             {store.paymentMode === "arc-mainnet" ? (
               <p className="mt-2 rounded-md bg-[#e7f4ef] px-3 py-2 text-sm font-bold text-[#0f6b57]">
-                {t.payAfterServedNote}
+                {store.paymentTiming === "prepaid" ? t.payBeforeOrderNote : t.payAfterServedNote}
               </p>
             ) : null}
             {!hasEnoughMenuStock(confirmShop, normalizeQuantity(confirmQuantity)) ? (
@@ -1645,8 +1772,19 @@ function HelpPage({
   );
 }
 
-function CustomerHelpScreen({ t, paymentMode, customerTheme }: { t: Copy; paymentMode: PaymentMode; customerTheme: CustomerTheme }) {
+function CustomerHelpScreen({
+  t,
+  paymentMode,
+  paymentTiming,
+  customerTheme,
+}: {
+  t: Copy;
+  paymentMode: PaymentMode;
+  paymentTiming: PaymentTiming;
+  customerTheme: CustomerTheme;
+}) {
   const isJa = t.back === "戻る";
+  const isPrepaid = paymentMode === "arc-mainnet" && paymentTiming === "prepaid";
 
   return (
     <HelpPage
@@ -1654,29 +1792,45 @@ function CustomerHelpScreen({ t, paymentMode, customerTheme }: { t: Copy; paymen
       title={isJa ? "注文の使い方" : "How to order"}
       intro={
         isJa
-          ? "テーブルのQRから開いた画面で、商品を選んで注文します。支払いは商品が届いた後に進みます。"
-          : "Open the table QR page, choose an item, and place the order. Payment happens after the item is served."
+          ? isPrepaid
+            ? "テーブルのQRから開いた画面で、商品を選んで先に支払い、注文を店舗へ送信します。"
+            : "テーブルのQRから開いた画面で、商品を選んで注文します。支払いは商品が届いた後に進みます。"
+          : isPrepaid
+            ? "Open the table QR page, choose an item, pay first, and send the order to the store."
+            : "Open the table QR page, choose an item, and place the order. Payment happens after the item is served."
       }
       sections={[
         {
           title: isJa ? "商品を選ぶ" : "Choose an item",
           items: isJa
-            ? ["メニューから商品を選びます。", "数量を入力してOKすると、店舗に注文が送信されます。", "Sold Outの商品は注文できません。"]
-            : ["Select an item from the menu.", "Enter the quantity and confirm to send the order to the store.", "Sold Out items cannot be ordered."],
+            ? isPrepaid
+              ? ["先にウォレットを接続します。", "メニューから商品を選び、数量を入力します。", "支払いが完了すると店舗に注文が送信されます。"]
+              : ["メニューから商品を選びます。", "数量を入力してOKすると、店舗に注文が送信されます。", "Sold Outの商品は注文できません。"]
+            : isPrepaid
+              ? ["Connect a wallet first.", "Select an item and enter the quantity.", "After payment completes, the order is sent to the store."]
+              : ["Select an item from the menu.", "Enter the quantity and confirm to send the order to the store.", "Sold Out items cannot be ordered."],
         },
         {
           title: isJa ? "届いたら確認" : "Confirm when served",
           items: isJa
-            ? ["店舗が商品を提供済みにすると、受け取り確認ボタンが出ます。", "商品が届いたことを確認してからボタンを押してください。"]
-            : ["After the store marks the order as served, a receipt confirmation button appears.", "Tap it only after the item has arrived."],
+            ? isPrepaid
+              ? ["事前会計では、支払い済みの注文として店舗に届きます。", "商品が届いたら通常どおり受け取ってください。"]
+              : ["店舗が商品を提供済みにすると、受け取り確認ボタンが出ます。", "商品が届いたことを確認してからボタンを押してください。"]
+            : isPrepaid
+              ? ["In prepaid mode, the store receives the order as paid.", "When the item arrives, simply receive it as usual."]
+              : ["After the store marks the order as served, a receipt confirmation button appears.", "Tap it only after the item has arrived."],
         },
         {
           title: isJa ? "支払い" : "Payment",
           items:
             paymentMode === "arc-mainnet"
               ? isJa
-                ? ["受け取り確認後、ウォレットでArc USDC支払いを確認します。", "支払いが完了すると、店舗側にもPAIDとして反映されます。"]
-                : ["After confirming receipt, approve the Arc USDC payment in your wallet.", "When payment completes, the store dashboard updates to PAID."]
+                ? isPrepaid
+                  ? ["注文時にウォレットでArc USDC支払いを確認します。", "支払いが完了すると、店舗側にPAIDとして注文が入ります。"]
+                  : ["受け取り確認後、ウォレットでArc USDC支払いを確認します。", "支払いが完了すると、店舗側にもPAIDとして反映されます。"]
+                : isPrepaid
+                  ? ["Approve the Arc USDC payment when ordering.", "When payment completes, the store receives the order as PAID."]
+                  : ["After confirming receipt, approve the Arc USDC payment in your wallet.", "When payment completes, the store dashboard updates to PAID."]
               : isJa
                 ? ["テスト会計ではウォレットは使いません。", "受け取り確認後、支払済みとして店舗側に反映されます。"]
                 : ["Test checkout does not use a wallet.", "After receipt confirmation, the store dashboard marks the order as paid."],
@@ -1707,8 +1861,8 @@ function SettingsHelpScreen({ t }: { t: Copy }) {
         {
           title: isJa ? "決済方法を選ぶ" : "Choose payment mode",
           items: isJa
-            ? ["テスト会計はウォレットなしで動作確認できます。", "Arc USDCを使う場合は、Arc Mainnetの受取アドレスを入力します。"]
-            : ["Test checkout lets you demo the flow without a wallet.", "For Arc USDC, enter the payout address on Arc Mainnet."],
+            ? ["テスト会計はウォレットなしで動作確認できます。", "Arc USDCを使う場合は、事前会計か提供後会計を選びます。", "Arc Mainnetの受取アドレスを入力します。"]
+            : ["Test checkout lets you demo the flow without a wallet.", "For Arc USDC, choose prepaid or pay-after-served.", "Enter the payout address on Arc Mainnet."],
         },
         {
           title: isJa ? "メニューを設定" : "Edit menu items",
@@ -1749,8 +1903,8 @@ function MerchantHelpScreen({ t, paymentMode }: { t: Copy; paymentMode: PaymentM
         {
           title: isJa ? "提供済みにする" : "Mark as served",
           items: isJa
-            ? ["商品をテーブルへ届けたら提供済みを押します。", "その後、お客様の画面で受け取り確認と支払いに進めます。"]
-            : ["Tap Served after bringing the item to the table.", "The customer can then confirm receipt and proceed to payment."],
+            ? ["商品をテーブルへ届けたら提供済みを押します。", "提供後会計では、その後お客様が受け取り確認と支払いに進めます。", "事前会計では、支払済み注文の提供完了として記録されます。"]
+            : ["Tap Served after bringing the item to the table.", "In pay-after-served mode, the customer can then confirm receipt and proceed to payment.", "In prepaid mode, it records the paid order as served."],
         },
         {
           title: isJa ? "キャンセル" : "Cancel orders",
@@ -1777,6 +1931,7 @@ function MerchantHelpScreen({ t, paymentMode }: { t: Copy; paymentMode: PaymentM
 function CustomerScreen({
   customer,
   paymentMode,
+  paymentTiming,
   recipientAddress,
   customerTheme,
   shops,
@@ -1799,6 +1954,7 @@ function CustomerScreen({
 }: {
   customer: Customer;
   paymentMode: PaymentMode;
+  paymentTiming: PaymentTiming;
   recipientAddress?: string;
   customerTheme: CustomerTheme;
   shops: Shop[];
@@ -1835,7 +1991,7 @@ function CustomerScreen({
           <div>
             <p className="text-lg font-bold text-[#17201d]">{t.tableLabel} {tableId}</p>
             <p className="mt-2 text-sm font-medium text-[#53625d]">
-              {paymentMode === "arc-mainnet" ? t.payAfterServed : t.demoMode}
+              {paymentMode === "arc-mainnet" ? (paymentTiming === "prepaid" ? t.prepaid : t.payAfterServed) : t.demoMode}
             </p>
           </div>
           <button className="touch-button small-button" type="button" onClick={onOpenHelp}>
@@ -1944,25 +2100,36 @@ function CustomerScreen({
         {shops.map((shop) => {
           const priceUsdc = calculateUsdcPrice(shop.priceJpy, INITIAL_EXCHANGE_RATE);
           const hasRecipient = isAddressLike(recipientAddress);
+          const hasWallet = Boolean(walletAddress);
           const soldOut = isSoldOut(shop);
-          const canBuy = !activeOrder && !soldOut && (paymentMode === "arc-mainnet" ? hasRecipient : true);
+          const needsWalletBeforeOrder = paymentMode === "arc-mainnet" && paymentTiming === "prepaid" && !hasWallet;
+          const canStartOrder = !activeOrder && !soldOut && (paymentMode === "arc-mainnet" ? hasRecipient : true);
           const buttonLabel =
             soldOut
               ? t.soldOut
               : paymentMode === "arc-mainnet"
               ? !hasRecipient
                 ? t.preparing
+                : needsWalletBeforeOrder
+                  ? t.connectWallet
                 : activeOrder
                   ? t.ordering
                   : t.order
-              : canBuy
+              : canStartOrder
                 ? (lang === "en" ? "Order" : t.order)
                 : t.ordering;
 
           function handleShopButton() {
-            if (canBuy) {
-              onPickShop(shop.id);
+            if (!canStartOrder) {
+              return;
             }
+
+            if (needsWalletBeforeOrder) {
+              onConnectWallet();
+              return;
+            }
+
+            onPickShop(shop.id);
           }
 
           return (
@@ -1994,8 +2161,8 @@ function CustomerScreen({
               <button
                 className="touch-button buy-button mt-4 w-full text-lg"
                 type="button"
-                disabled={!canBuy}
-                style={canBuy ? themedButtonStyle : undefined}
+                disabled={!canStartOrder}
+                style={canStartOrder ? themedButtonStyle : undefined}
                 onClick={handleShopButton}
               >
                 {buttonLabel}
@@ -2090,7 +2257,7 @@ function MerchantScreen({
   lang: Lang;
   onSelectShop: (shopId: string) => void;
   onOpenTables: () => void;
-  onCompleteOrder: (orderId: string) => void;
+  onCompleteOrder: (order: PaymentRecord) => void;
   onCancelOrder: (orderId: string) => void;
 }) {
   if (!selectedStats) {
@@ -2239,11 +2406,11 @@ function MerchantScreen({
                   <p className={`font-mono text-lg font-black ${isRevenueOrder(record.status) ? "text-[#f8d45d]" : "text-white/55"}`}>
                     {isRevenueOrder(record.status) ? `+${formatUsdc(record.priceUsdc)} USDC` : statusLabel(record.status, t)}
                   </p>
-                  {record.status === "ordered" ? (
+                  {record.status === "ordered" || (record.status === "paid" && record.paymentTiming === "prepaid") ? (
                     <button
                       className="mt-2 rounded-md bg-[#f8d45d] px-3 py-2 text-sm font-black text-[#23190b]"
                       type="button"
-                      onClick={() => onCompleteOrder(record.id)}
+                      onClick={() => onCompleteOrder(record)}
                     >
                       {t.served}
                     </button>
@@ -2471,7 +2638,7 @@ function SettingsScreen({
   statusMessage: string;
   t: Copy;
   onSaveSettings: (
-    nextSettings: Pick<StoreState, "storeName" | "tableCount" | "customerTheme" | "exchangeRateJpyPerUsdc" | "paymentMode" | "recipientAddress" | "shops">,
+    nextSettings: Pick<StoreState, "storeName" | "tableCount" | "customerTheme" | "exchangeRateJpyPerUsdc" | "paymentMode" | "paymentTiming" | "recipientAddress" | "shops">,
   ) => Promise<void>;
   onResetDemo: () => void;
   onOpenHelp: () => void;
@@ -2484,6 +2651,7 @@ function SettingsScreen({
     customerTheme: normalizeTheme(store.customerTheme),
     exchangeRateJpyPerUsdc: store.exchangeRateJpyPerUsdc,
     paymentMode: store.paymentMode,
+    paymentTiming: store.paymentTiming,
     recipientAddress: store.recipientAddress || "",
     shops: store.shops,
   }));
@@ -2664,7 +2832,7 @@ function SettingsScreen({
             }`}
             type="button"
             aria-pressed={draft.paymentMode === "demo"}
-            onClick={() => setDraft((current) => ({ ...current, paymentMode: "demo", recipientAddress: "" }))}
+            onClick={() => setDraft((current) => ({ ...current, paymentMode: "demo", paymentTiming: "after-served", recipientAddress: "" }))}
           >
             <span className="block">{t.demoMode}</span>
             {draft.paymentMode === "demo" ? <span className="mt-1 block text-xs">{t.selected}</span> : null}
@@ -2687,21 +2855,57 @@ function SettingsScreen({
           {draft.paymentMode === "arc-mainnet" ? t.arcModeHelp : t.demoModeHelp}
         </p>
         {draft.paymentMode === "arc-mainnet" ? (
-          <div className="mt-4">
-            <label className="field-label" htmlFor="store-recipient">
-              {t.recipient}
-            </label>
-            <input
-              id="store-recipient"
-              className="text-field mt-2 font-mono text-sm"
-              placeholder="0x..."
-              value={draft.recipientAddress}
-              onChange={(event) => setDraft((current) => ({ ...current, recipientAddress: event.target.value.trim() }))}
-            />
-            {!isAddressLike(draft.recipientAddress) ? (
-              <p className="mt-2 text-sm font-bold text-[#b62e22]">{t.recipientRequired}</p>
-            ) : null}
-          </div>
+          <>
+            <div className="mt-4">
+              <p className="field-label">{t.paymentTiming}</p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                <button
+                  className={`touch-button border text-base ${
+                    draft.paymentTiming === "prepaid"
+                      ? "border-[#0f6b57] bg-[#e7f4ef] text-[#0f6b57]"
+                      : "border-[#d9e3df] bg-white text-[#53625d]"
+                  }`}
+                  type="button"
+                  aria-pressed={draft.paymentTiming === "prepaid"}
+                  onClick={() => setDraft((current) => ({ ...current, paymentTiming: "prepaid" }))}
+                >
+                  <span className="block">{t.prepaid}</span>
+                  {draft.paymentTiming === "prepaid" ? <span className="mt-1 block text-xs">{t.selected}</span> : null}
+                </button>
+                <button
+                  className={`touch-button border text-base ${
+                    draft.paymentTiming === "after-served"
+                      ? "border-[#0f6b57] bg-[#e7f4ef] text-[#0f6b57]"
+                      : "border-[#d9e3df] bg-white text-[#53625d]"
+                  }`}
+                  type="button"
+                  aria-pressed={draft.paymentTiming === "after-served"}
+                  onClick={() => setDraft((current) => ({ ...current, paymentTiming: "after-served" }))}
+                >
+                  <span className="block">{t.afterServed}</span>
+                  {draft.paymentTiming === "after-served" ? <span className="mt-1 block text-xs">{t.selected}</span> : null}
+                </button>
+              </div>
+              <p className="mt-3 text-sm font-medium leading-6 text-[#53625d]">
+                {draft.paymentTiming === "prepaid" ? t.prepaidHelp : t.afterServedHelp}
+              </p>
+            </div>
+            <div className="mt-4">
+              <label className="field-label" htmlFor="store-recipient">
+                {t.recipient}
+              </label>
+              <input
+                id="store-recipient"
+                className="text-field mt-2 font-mono text-sm"
+                placeholder="0x..."
+                value={draft.recipientAddress}
+                onChange={(event) => setDraft((current) => ({ ...current, recipientAddress: event.target.value.trim() }))}
+              />
+              {!isAddressLike(draft.recipientAddress) ? (
+                <p className="mt-2 text-sm font-bold text-[#b62e22]">{t.recipientRequired}</p>
+              ) : null}
+            </div>
+          </>
         ) : null}
       </div>
 

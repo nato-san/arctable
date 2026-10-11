@@ -2,32 +2,32 @@
 
 ArcTable is a table-ordering system for restaurants with per-order Arc USDC settlement.
 
-Guests open a table-specific menu from a QR code, place an order, and confirm receipt after the item is served. The merchant dashboard receives table-numbered orders, marks them as served, and sees the order update to `PAID` after the guest completes an Arc Mainnet USDC payment.
+Guests open a table-specific menu from a QR code, place an order, and pay with Arc Mainnet USDC. The merchant can choose prepaid ordering or pay-after-served ordering for each store.
 
 The project was built for Arc Microgrants as a practical restaurant workflow rather than a generic wallet transfer demo.
 
 ## Why Arc
 
-ArcTable uses Arc Mainnet as the settlement layer for restaurant orders. The customer does not pay at menu selection time. Instead, the merchant first marks an order as served, the customer confirms receipt, and then the customer sends USDC on Arc to the merchant payout address. The app checks the Arc transaction receipt before updating the merchant dashboard to `PAID`.
+ArcTable uses Arc Mainnet as the settlement layer for restaurant orders. In prepaid mode, the customer pays before the order is accepted by the store. In pay-after-served mode, the merchant first marks an order as served, the customer confirms receipt, and then the customer sends USDC on Arc to the merchant payout address. The app checks the Arc transaction receipt before updating the merchant dashboard to `PAID`.
 
 This creates a practical flow for small restaurants:
 
 1. Scan table QR.
 2. Order from the phone.
 3. Merchant serves the item.
-4. Customer confirms receipt.
-5. Customer pays with Arc USDC.
-6. Merchant sees `PAID`.
+4. Customer pays with Arc USDC before ordering or after service, depending on the store setting.
+5. Merchant sees `PAID`.
 
 ## MVP Scope
 
 - Table QR URLs: identify each table with URLs like `?store=main-store&table=1`
 - Table URL settings: set the number of tables and generate one customer URL per table
-- Guest view: show the table number, browse menu, place order with quantity, confirm receipt, pay with Arc USDC
+- Guest view: show the table number, browse menu, place order with quantity, and pay with Arc USDC
 - Guest order history: keep the guest's current browser order history visible
 - Merchant view: receive table-numbered orders, mark `Served`, cancel orders, confirm `PAID`
 - Storage: local JSON in development or Upstash Redis-compatible REST storage
 - Payment: Arc Mainnet USDC transfer through the connected wallet
+- Payment timing: merchant-selectable prepaid or pay-after-served flow for Arc USDC mode
 - Transaction evidence: merchant orders show the Arc transaction URL after payment
 - Test checkout mode: wallet-free flow for demoing the restaurant workflow
 - Languages: English and Japanese UI toggle
@@ -46,8 +46,8 @@ This creates a practical flow for small restaurants:
 8. Open the merchant view on one device.
 9. Open a table URL on a customer phone or browser tab.
 10. Place an order.
-11. In the merchant view, mark the order as `Served`.
-12. In the customer view, confirm receipt and pay with Arc USDC.
+11. If using pay-after-served, mark the order as `Served`, then have the customer confirm receipt and pay with Arc USDC.
+12. If using prepaid, have the customer pay first; the merchant receives the order as `PAID`.
 13. Confirm that the merchant dashboard updates the order to `PAID`.
 14. Open or copy the transaction URL from the merchant order item.
 
@@ -56,9 +56,14 @@ This creates a practical flow for small restaurants:
 ArcTable has two payment modes:
 
 - `Test checkout`: no wallet is required. This mode is useful for rehearsing the table-ordering workflow. Orders become paid after the customer confirms receipt.
-- `Arc USDC`: the customer pays on Arc Mainnet after the merchant marks the order as served. A valid Arc-compatible payout address is required in store settings.
+- `Arc USDC`: the customer pays on Arc Mainnet. A valid Arc-compatible payout address is required in store settings.
 
 The hackathon submission focuses on the `Arc USDC` mode. `Test checkout` is included only as a demonstration aid.
+
+Arc USDC stores can choose one of two payment timings:
+
+- `Pay before order`: the customer connects a wallet and pays before the order is accepted. The merchant receives the order as `PAID`.
+- `Pay after served`: the customer orders first, the merchant marks the order as served, and the customer pays after confirming receipt.
 
 ## Merchant Operations
 
@@ -67,6 +72,7 @@ Merchants can:
 - Save a private manager URL for returning to the store dashboard.
 - Configure table URLs for table-specific QR codes.
 - Edit menu item names, descriptions, photos, prices, and stock counts.
+- Choose prepaid or pay-after-served timing for Arc USDC orders.
 - Receive orders with table numbers.
 - Mark orders as `Served`.
 - Cancel unpaid orders if a guest requests cancellation or an item is unavailable.
@@ -117,6 +123,10 @@ Reservations, coupons, NFTs, points, user accounts, reviews, multi-store managem
 - Guest identity and guest-side order history are stored in the customer's own browser localStorage. This MVP assumes guests scan the QR with their own phone. If a shared table device is used, the browser state should be cleared between guests or replaced later with a visit/session-based table URL.
 - Table identity comes from the table QR URL, such as `?table=1`, and is shown on the guest order screen and merchant order records.
 - Stock counts are simple menu-level counts for the MVP. They are reduced when an order is placed and restored when the merchant cancels an unpaid order.
+
+## Roadmap
+
+- Store-local wallet warning history: record unpaid or abandoned wallet-connected orders within a store, show a warning marker on future visits, and escalate after repeated incidents. This is intentionally store-local rather than a global blacklist.
 
 ## Development Process
 
