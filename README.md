@@ -21,7 +21,7 @@ This creates a practical flow for small restaurants:
 ## MVP Scope
 
 - Table QR URLs: identify each table with URLs like `?store=main-store&table=1`
-- Table URL settings: set the number of tables and generate one customer URL per table
+- Table URL settings: set the number of tables and generate one customer URL and QR code per table
 - Guest view: show the table number, browse menu, place order with quantity, and pay with Arc USDC
 - Guest order history: keep the guest's current browser order history visible
 - Merchant view: receive table-numbered orders, mark `Served`, cancel orders, confirm `PAID`
@@ -31,18 +31,19 @@ This creates a practical flow for small restaurants:
 - Transaction evidence: merchant orders show the Arc transaction URL after payment
 - Test checkout mode: wallet-free flow for demoing the restaurant workflow
 - Languages: English and Japanese UI toggle
-- Merchant-editable store settings: payout address, item name, description, photo URL, USDC price, and stock count
+- Help pages: concise customer guide, store setup guide, and merchant operations guide
+- Merchant-editable store settings: payout address, payment timing, item name, description, photo URL, USDC price, stock count, and customer screen colors
 - Stock handling: items can be marked `Sold Out` without removing them from the menu
 
 ## Demo Flow
 
 1. Create a store workspace.
 2. Save the private manager URL shown after store creation.
-3. Open Settings and configure the payment mode.
+3. Open Settings and configure the payment mode and payment timing.
 4. For Arc USDC mode, add the store payout address.
 5. Add menu items, descriptions, photo URLs, USDC prices, and optional stock counts.
 6. Open Table URL settings and generate table-specific customer URLs.
-7. Put each table URL into a QR code for the matching table.
+7. Use the displayed QR code for the matching table.
 8. Open the merchant view on one device.
 9. Open a table URL on a customer phone or browser tab.
 10. Place an order.
@@ -72,6 +73,7 @@ Merchants can:
 - Save a private manager URL for returning to the store dashboard.
 - Configure table URLs for table-specific QR codes.
 - Edit menu item names, descriptions, photos, prices, and stock counts.
+- Customize the customer table screen background and button color.
 - Choose prepaid or pay-after-served timing for Arc USDC orders.
 - Receive orders with table numbers.
 - Mark orders as `Served`.
@@ -118,7 +120,7 @@ Reservations, coupons, NFTs, points, user accounts, reviews, multi-store managem
 
 - Menu photos are stored as external image URLs rather than uploaded image files.
 - Local development uses JSON files in `data/stores`. Production should use Redis-compatible storage.
-- The MVP is designed for a single restaurant workspace per shared `store` ID.
+- The MVP does not include an account-level multi-store dashboard. Each restaurant workspace is opened from its private manager URL.
 - The private manager URL is the only way to return to a store dashboard. There is no login system in this MVP.
 - Guest identity and guest-side order history are stored in the customer's own browser localStorage. This MVP assumes guests scan the QR with their own phone. If a shared table device is used, the browser state should be cleared between guests or replaced later with a visit/session-based table URL.
 - Table identity comes from the table QR URL, such as `?table=1`, and is shown on the guest order screen and merchant order records.
