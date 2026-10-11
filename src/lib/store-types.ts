@@ -55,10 +55,16 @@ export type PaymentRecord = {
 
 export type PaymentMode = "demo" | "arc-mainnet";
 
+export type CustomerTheme = {
+  backgroundColor: string;
+  buttonColor: string;
+};
+
 export type StoreState = {
   storeName: string;
   adminToken?: string;
   tableCount?: number;
+  customerTheme?: CustomerTheme;
   exchangeRateJpyPerUsdc: number;
   paymentMode: PaymentMode;
   recipientAddress?: string;

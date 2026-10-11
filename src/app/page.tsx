@@ -7,7 +7,7 @@ import { formatEther, parseEther, type Address } from "viem";
 import { useAppKit } from "@reown/appkit/react";
 import { sendTransaction, switchChain } from "wagmi/actions";
 import { useAccount, useBalance } from "wagmi";
-import type { Customer, StoreResponse, StoreState, PaymentMode, PaymentRecord, Shop, ShopStats } from "@/lib/store-types";
+import type { Customer, CustomerTheme, StoreResponse, StoreState, PaymentMode, PaymentRecord, Shop, ShopStats } from "@/lib/store-types";
 import { ARC_MAINNET_CHAIN_ID, ARC_MAINNET_EXPLORER_URL } from "@/lib/arc-mainnet-config";
 import { wagmiAdapter } from "./providers";
 
@@ -51,6 +51,10 @@ const copy = {
     customerHelp: "Customer guide",
     settingsHelp: "Setup guide",
     merchantHelp: "Orders & sales guide",
+    customerTheme: "Table screen theme",
+    customerBackgroundColor: "Background color",
+    customerButtonColor: "Button color",
+    customerThemeHelp: "This changes the customer table order screen. Use colors with clear contrast.",
     tableCount: "Number of tables",
     tableCountHelp: "Generate one customer order URL for each table. Put each URL into a QR code and place it on the table.",
     qrCode: "QR code",
@@ -186,6 +190,10 @@ const copy = {
     customerHelp: "お客様向け",
     settingsHelp: "設定方法",
     merchantHelp: "受注・売上",
+    customerTheme: "テーブル画面テーマ",
+    customerBackgroundColor: "背景色",
+    customerButtonColor: "ボタン色",
+    customerThemeHelp: "お客様が見るテーブル注文画面に反映されます。見やすい色を選んでください。",
     tableCount: "テーブル数",
     tableCountHelp: "テーブルごとの注文URLを作成します。各URLをQRコードにして、対応するテーブルに置いてください。",
     qrCode: "QRコード",
@@ -325,10 +333,16 @@ const fallbackShops: Shop[] = [
   },
 ];
 
+const DEFAULT_CUSTOMER_THEME: CustomerTheme = {
+  backgroundColor: "#f5f7f6",
+  buttonColor: "#0f6b57",
+};
+
 const initialState: StoreState = {
   storeName: "ArcTable Store",
   adminToken: "",
   tableCount: 6,
+  customerTheme: DEFAULT_CUSTOMER_THEME,
   exchangeRateJpyPerUsdc: INITIAL_EXCHANGE_RATE,
   paymentMode: "demo",
   recipientAddress: "",
@@ -493,6 +507,27 @@ function isAddressLike(value?: string) {
   return /^0x[a-fA-F0-9]{40}$/.test(value || "");
 }
 
+function normalizeTheme(theme?: CustomerTheme): CustomerTheme {
+  return {
+    backgroundColor: /^#[0-9a-fA-F]{6}$/.test(theme?.backgroundColor || "")
+      ? theme?.backgroundColor || DEFAULT_CUSTOMER_THEME.backgroundColor
+      : DEFAULT_CUSTOMER_THEME.backgroundColor,
+    buttonColor: /^#[0-9a-fA-F]{6}$/.test(theme?.buttonColor || "")
+      ? theme?.buttonColor || DEFAULT_CUSTOMER_THEME.buttonColor
+      : DEFAULT_CUSTOMER_THEME.buttonColor,
+  };
+}
+
+function getReadableTextColor(backgroundColor: string) {
+  const normalized = backgroundColor.replace("#", "");
+  const red = Number.parseInt(normalized.slice(0, 2), 16);
+  const green = Number.parseInt(normalized.slice(2, 4), 16);
+  const blue = Number.parseInt(normalized.slice(4, 6), 16);
+  const luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255;
+
+  return luminance > 0.62 ? "#17201d" : "#ffffff";
+}
+
 function toUsdcAmount(value: number) {
   return value.toFixed(8).replace(/0+$/, "").replace(/\.$/, "");
 }
@@ -631,6 +666,7 @@ export default function Home() {
               adminToken: activeAdminToken,
               storeName: nextStore.storeName,
               tableCount: nextStore.tableCount,
+              customerTheme: normalizeTheme(nextStore.customerTheme),
               exchangeRateJpyPerUsdc: nextStore.exchangeRateJpyPerUsdc,
               paymentMode: nextStore.paymentMode,
               recipientAddress: nextStore.recipientAddress || "",
@@ -643,6 +679,7 @@ export default function Home() {
             storeName: nextStore.storeName,
             adminToken: activeAdminToken,
             tableCount: nextStore.tableCount,
+            customerTheme: normalizeTheme(nextStore.customerTheme),
             exchangeRateJpyPerUsdc: nextStore.exchangeRateJpyPerUsdc,
             paymentMode: nextStore.paymentMode,
             recipientAddress: nextStore.recipientAddress,
@@ -722,6 +759,7 @@ export default function Home() {
       storeName: nextStore.storeName,
       adminToken,
       tableCount: nextStore.tableCount,
+      customerTheme: normalizeTheme(nextStore.customerTheme),
       exchangeRateJpyPerUsdc: nextStore.exchangeRateJpyPerUsdc,
       paymentMode: nextStore.paymentMode,
       recipientAddress: nextStore.recipientAddress,
@@ -795,6 +833,7 @@ export default function Home() {
           storeName: result.state.storeName,
           adminToken,
           tableCount: result.state.tableCount,
+          customerTheme: normalizeTheme(result.state.customerTheme),
           exchangeRateJpyPerUsdc: result.state.exchangeRateJpyPerUsdc,
           paymentMode: result.state.paymentMode,
           recipientAddress: result.state.recipientAddress,
@@ -990,7 +1029,7 @@ export default function Home() {
   }
 
   async function saveSettings(
-    nextSettings: Pick<StoreState, "storeName" | "tableCount" | "exchangeRateJpyPerUsdc" | "paymentMode" | "recipientAddress" | "shops">,
+    nextSettings: Pick<StoreState, "storeName" | "tableCount" | "customerTheme" | "exchangeRateJpyPerUsdc" | "paymentMode" | "recipientAddress" | "shops">,
   ) {
     if (!storeId) {
       return false;
@@ -998,6 +1037,7 @@ export default function Home() {
 
     const settingsToSave = {
       ...nextSettings,
+      customerTheme: normalizeTheme(nextSettings.customerTheme),
       recipientAddress: nextSettings.paymentMode === "arc-mainnet" ? nextSettings.recipientAddress : "",
     };
     setStore((current) => ({ ...current, ...settingsToSave }));
@@ -1193,6 +1233,7 @@ export default function Home() {
             customer={currentCustomer}
             paymentMode={store.paymentMode}
             recipientAddress={store.recipientAddress}
+            customerTheme={normalizeTheme(store.customerTheme)}
             shops={store.shops}
             orderHistory={store.payments}
             tableId={tableId}
@@ -1248,6 +1289,7 @@ export default function Home() {
               const didSave = await saveSettings({
                 storeName: store.storeName,
                 tableCount,
+                customerTheme: normalizeTheme(store.customerTheme),
                 exchangeRateJpyPerUsdc: store.exchangeRateJpyPerUsdc,
                 paymentMode: store.paymentMode,
                 recipientAddress: store.recipientAddress || "",
@@ -1281,7 +1323,9 @@ export default function Home() {
           />
         ) : null}
 
-        {screen === "customer-help" ? <CustomerHelpScreen t={t} paymentMode={store.paymentMode} /> : null}
+        {screen === "customer-help" ? (
+          <CustomerHelpScreen t={t} paymentMode={store.paymentMode} customerTheme={normalizeTheme(store.customerTheme)} />
+        ) : null}
         {screen === "settings-help" ? <SettingsHelpScreen t={t} /> : null}
         {screen === "merchant-help" ? <MerchantHelpScreen t={t} paymentMode={store.paymentMode} /> : null}
       </div>
@@ -1533,14 +1577,16 @@ function HelpPage({
   intro,
   sections,
   dark = false,
+  backgroundColor,
 }: {
   title: string;
   intro: string;
   sections: { title: string; items: string[] }[];
   dark?: boolean;
+  backgroundColor?: string;
 }) {
   return (
-    <section className={`flex-1 px-4 py-5 ${dark ? "bg-[#17201d] text-white" : ""}`}>
+    <section className={`flex-1 px-4 py-5 ${dark ? "bg-[#17201d] text-white" : ""}`} style={backgroundColor ? { backgroundColor } : undefined}>
       <div className={`rounded-lg border p-5 shadow-sm ${dark ? "border-white/10 bg-[#22312c]" : "border-[#d9e3df] bg-white"}`}>
         <p className={`text-xs font-black uppercase tracking-[0.18em] ${dark ? "text-[#99dac7]" : "text-[#0f6b57]"}`}>
           ArcTable
@@ -1579,11 +1625,12 @@ function HelpPage({
   );
 }
 
-function CustomerHelpScreen({ t, paymentMode }: { t: Copy; paymentMode: PaymentMode }) {
+function CustomerHelpScreen({ t, paymentMode, customerTheme }: { t: Copy; paymentMode: PaymentMode; customerTheme: CustomerTheme }) {
   const isJa = t.back === "戻る";
 
   return (
     <HelpPage
+      backgroundColor={customerTheme.backgroundColor}
       title={isJa ? "注文の使い方" : "How to order"}
       intro={
         isJa
@@ -1711,6 +1758,7 @@ function CustomerScreen({
   customer,
   paymentMode,
   recipientAddress,
+  customerTheme,
   shops,
   orderHistory,
   tableId,
@@ -1732,6 +1780,7 @@ function CustomerScreen({
   customer: Customer;
   paymentMode: PaymentMode;
   recipientAddress?: string;
+  customerTheme: CustomerTheme;
   shops: Shop[];
   orderHistory: PaymentRecord[];
   tableId: string;
@@ -1753,9 +1802,14 @@ function CustomerScreen({
   const customerOrders = orderHistory
     .filter((payment) => payment.customerId === customer.id)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const theme = normalizeTheme(customerTheme);
+  const themedButtonStyle = {
+    backgroundColor: theme.buttonColor,
+    color: getReadableTextColor(theme.buttonColor),
+  };
 
   return (
-    <section className="flex-1 px-4 py-5">
+    <section className="flex-1 px-4 py-5" style={{ backgroundColor: theme.backgroundColor }}>
       <div className="mb-4 rounded-lg border border-[#d9e3df] bg-white p-4 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -1785,7 +1839,7 @@ function CustomerScreen({
               <p className="mt-1 text-4xl font-bold">{walletBalanceUsdc === null ? "--" : formatUsdc(walletBalanceUsdc)} USDC</p>
             </>
           ) : (
-            <button className="touch-button buy-button mt-3 w-full text-lg" type="button" onClick={onConnectWallet}>
+            <button className="touch-button buy-button mt-3 w-full text-lg" type="button" style={themedButtonStyle} onClick={onConnectWallet}>
               {t.connectWallet}
             </button>
           )}
@@ -1818,6 +1872,7 @@ function CustomerScreen({
             <button
               className="touch-button buy-button mt-4 w-full text-lg"
               type="button"
+              style={themedButtonStyle}
               onClick={() => onConfirmServedOrder(activeOrder)}
             >
               {t.receivedPay}
@@ -1920,6 +1975,7 @@ function CustomerScreen({
                 className="touch-button buy-button mt-4 w-full text-lg"
                 type="button"
                 disabled={!canBuy}
+                style={canBuy ? themedButtonStyle : undefined}
                 onClick={handleShopButton}
               >
                 {buttonLabel}
@@ -2428,7 +2484,7 @@ function SettingsScreen({
   statusMessage: string;
   t: Copy;
   onSaveSettings: (
-    nextSettings: Pick<StoreState, "storeName" | "tableCount" | "exchangeRateJpyPerUsdc" | "paymentMode" | "recipientAddress" | "shops">,
+    nextSettings: Pick<StoreState, "storeName" | "tableCount" | "customerTheme" | "exchangeRateJpyPerUsdc" | "paymentMode" | "recipientAddress" | "shops">,
   ) => Promise<void>;
   onResetDemo: () => void;
   onOpenHelp: () => void;
@@ -2438,6 +2494,7 @@ function SettingsScreen({
   const [draft, setDraft] = useState(() => ({
     storeName: store.storeName,
     tableCount: store.tableCount || 6,
+    customerTheme: normalizeTheme(store.customerTheme),
     exchangeRateJpyPerUsdc: store.exchangeRateJpyPerUsdc,
     paymentMode: store.paymentMode,
     recipientAddress: store.recipientAddress || "",
@@ -2544,6 +2601,68 @@ function SettingsScreen({
           >
             {t.tableUrls}
           </a>
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-lg border border-[#d9e3df] bg-white p-4 shadow-sm">
+        <p className="field-label">{t.customerTheme}</p>
+        <p className="mt-2 text-sm font-medium leading-6 text-[#53625d]">{t.customerThemeHelp}</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <label className="rounded-lg border border-[#d9e3df] p-3">
+            <span className="field-label">{t.customerBackgroundColor}</span>
+            <div className="mt-3 flex items-center gap-3">
+              <input
+                className="h-12 w-16 rounded-md border border-[#d9e3df] bg-white p-1"
+                type="color"
+                value={draft.customerTheme.backgroundColor}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    customerTheme: {
+                      ...current.customerTheme,
+                      backgroundColor: event.target.value,
+                    },
+                  }))
+                }
+              />
+              <span className="font-mono text-sm font-black text-[#53625d]">{draft.customerTheme.backgroundColor}</span>
+            </div>
+          </label>
+          <label className="rounded-lg border border-[#d9e3df] p-3">
+            <span className="field-label">{t.customerButtonColor}</span>
+            <div className="mt-3 flex items-center gap-3">
+              <input
+                className="h-12 w-16 rounded-md border border-[#d9e3df] bg-white p-1"
+                type="color"
+                value={draft.customerTheme.buttonColor}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    customerTheme: {
+                      ...current.customerTheme,
+                      buttonColor: event.target.value,
+                    },
+                  }))
+                }
+              />
+              <span className="font-mono text-sm font-black text-[#53625d]">{draft.customerTheme.buttonColor}</span>
+            </div>
+          </label>
+        </div>
+        <div
+          className="mt-4 rounded-lg border border-[#d9e3df] p-4"
+          style={{ backgroundColor: draft.customerTheme.backgroundColor }}
+        >
+          <button
+            className="rounded-md px-4 py-3 text-sm font-black"
+            type="button"
+            style={{
+              backgroundColor: draft.customerTheme.buttonColor,
+              color: getReadableTextColor(draft.customerTheme.buttonColor),
+            }}
+          >
+            {t.order}
+          </button>
         </div>
       </div>
 

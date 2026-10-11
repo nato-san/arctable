@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { createPublicClient, formatEther, getAddress, http, parseEther, type Hash } from "viem";
 import { arcMainnet } from "./arc-mainnet";
-import type { Customer, StoreState, PaymentMode, PaymentRecord, Shop } from "./store-types";
+import type { Customer, CustomerTheme, StoreState, PaymentMode, PaymentRecord, Shop } from "./store-types";
 
 const DATA_DIR = process.env.VERCEL ? path.join(os.tmpdir(), "arctable-data") : path.join(process.cwd(), "data");
 const STORES_DIR = path.join(DATA_DIR, "stores");
@@ -11,6 +11,10 @@ const DEFAULT_STORE_ID = "demo-store";
 const INITIAL_BALANCE = 50;
 const INITIAL_EXCHANGE_RATE = 100;
 const INITIAL_TABLE_COUNT = 6;
+const DEFAULT_CUSTOMER_THEME: CustomerTheme = {
+  backgroundColor: "#f5f7f6",
+  buttonColor: "#0f6b57",
+};
 
 export const defaultShops: Shop[] = [
   {
@@ -46,6 +50,7 @@ const initialState: StoreState = {
   storeName: "ArcTable Store",
   adminToken: "",
   tableCount: INITIAL_TABLE_COUNT,
+  customerTheme: DEFAULT_CUSTOMER_THEME,
   exchangeRateJpyPerUsdc: INITIAL_EXCHANGE_RATE,
   paymentMode: "demo",
   recipientAddress: "",
@@ -109,6 +114,19 @@ function normalizeStock(value: unknown) {
   const stock = Number(value);
 
   return Number.isFinite(stock) ? Math.max(0, Math.floor(stock)) : undefined;
+}
+
+function normalizeHexColor(value: unknown, fallback: string) {
+  return typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value) ? value : fallback;
+}
+
+function normalizeCustomerTheme(value: unknown): CustomerTheme {
+  const theme = value && typeof value === "object" ? (value as Partial<CustomerTheme>) : {};
+
+  return {
+    backgroundColor: normalizeHexColor(theme.backgroundColor, DEFAULT_CUSTOMER_THEME.backgroundColor),
+    buttonColor: normalizeHexColor(theme.buttonColor, DEFAULT_CUSTOMER_THEME.buttonColor),
+  };
 }
 
 function hasEnoughStock(shop: Shop, quantity: number) {
@@ -340,6 +358,7 @@ function normalizeState(parsed: Partial<StoreState>): StoreState {
       typeof parsed.tableCount === "number" && parsed.tableCount > 0
         ? Math.min(99, Math.floor(parsed.tableCount))
         : INITIAL_TABLE_COUNT,
+    customerTheme: normalizeCustomerTheme(parsed.customerTheme),
     exchangeRateJpyPerUsdc:
       typeof parsed.exchangeRateJpyPerUsdc === "number" && parsed.exchangeRateJpyPerUsdc > 0
         ? parsed.exchangeRateJpyPerUsdc
@@ -397,7 +416,7 @@ export async function updateSettings(
   storeId: string,
   nextSettings: Pick<
     StoreState,
-    "storeName" | "adminToken" | "tableCount" | "exchangeRateJpyPerUsdc" | "paymentMode" | "recipientAddress" | "shops"
+    "storeName" | "adminToken" | "tableCount" | "customerTheme" | "exchangeRateJpyPerUsdc" | "paymentMode" | "recipientAddress" | "shops"
   >,
 ) {
   const normalizedStoreId = normalizeStoreId(storeId);
@@ -407,6 +426,7 @@ export async function updateSettings(
     storeName: nextSettings.storeName,
     adminToken: state.adminToken || nextSettings.adminToken || "",
     tableCount: Math.max(1, Math.min(99, Math.floor(nextSettings.tableCount || state.tableCount || INITIAL_TABLE_COUNT))),
+    customerTheme: normalizeCustomerTheme(nextSettings.customerTheme),
     exchangeRateJpyPerUsdc: Math.max(1, nextSettings.exchangeRateJpyPerUsdc),
     paymentMode: nextSettings.paymentMode,
     recipientAddress: nextSettings.recipientAddress || "",
