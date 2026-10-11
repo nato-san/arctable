@@ -2119,7 +2119,7 @@ function MerchantScreen({
 
       <div className="mt-3 grid gap-2">
         <button
-          className="rounded-md bg-white/10 px-3 py-3 text-sm font-black text-white"
+          className="rounded-md border border-[#99dac7]/25 bg-[#2a3b36] px-3 py-3 text-sm font-black text-[#e8fff7]"
           type="button"
           onClick={onOpenTables}
         >
