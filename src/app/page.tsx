@@ -30,7 +30,7 @@ const copy = {
     merchantView: "Merchant View",
     paidTotal: "Paid Total",
     orders: "Orders",
-    currentOrder: "Current Order",
+    currentOrder: "Current Orders",
     served: "Served",
     testCheckoutLabel: "Test checkout",
     arcOnchainLabel: "Arc Mainnet / On-chain",
@@ -752,12 +752,11 @@ export default function Home() {
     : store.shops[0]?.id || "";
   const confirmShop = store.shops.find((shop) => shop.id === confirmShopId) || null;
   const successPayment = successPaymentId ? store.payments.find((payment) => payment.id === successPaymentId) || null : null;
-  const activeCustomerOrder =
-    store.payments.find(
-      (payment) =>
-        payment.customerId === currentCustomer.id &&
-        ["ordered", "served", "customer_confirmed", "pending_wallet", "submitted"].includes(payment.status),
-    ) || null;
+  const activeCustomerOrders = store.payments.filter(
+    (payment) =>
+      payment.customerId === currentCustomer.id &&
+      ["ordered", "served", "customer_confirmed", "pending_wallet", "submitted"].includes(payment.status),
+  );
 
   const shopStats = useMemo(() => {
     return store.shops.map((shop) => {
@@ -1391,7 +1390,7 @@ export default function Home() {
             shops={store.shops}
             orderHistory={store.payments}
             tableId={tableId}
-            activeOrder={activeCustomerOrder}
+            activeOrders={activeCustomerOrders}
             successItemName={successItemName}
             successPayment={successPayment}
             statusMessage={statusMessage}
@@ -1943,7 +1942,7 @@ function CustomerScreen({
   shops,
   orderHistory,
   tableId,
-  activeOrder,
+  activeOrders,
   successItemName,
   successPayment,
   statusMessage,
@@ -1966,7 +1965,7 @@ function CustomerScreen({
   shops: Shop[];
   orderHistory: PaymentRecord[];
   tableId: string;
-  activeOrder: PaymentRecord | null;
+  activeOrders: PaymentRecord[];
   successItemName: string | null;
   successPayment: PaymentRecord | null;
   statusMessage: string;
@@ -2036,35 +2035,36 @@ function CustomerScreen({
         </p>
       ) : null}
 
-      {activeOrder ? (
+      {activeOrders.length > 0 ? (
         <section className="mt-4 rounded-lg border border-[#d9e3df] bg-white p-5 shadow-sm">
           <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#0f6b57]">{t.currentOrder}</p>
-          <div className="mt-3 flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-2xl font-bold">{activeOrder.itemName}</h2>
-              <p className="mt-1 text-sm font-medium text-[#53625d]">
-                {t.orderShort} {activeOrder.id.slice(-8)} / {formatUsdc(activeOrder.priceUsdc)} USDC
-              </p>
-            </div>
-            <span className="rounded-full bg-[#eef4f1] px-3 py-2 text-sm font-bold text-[#53625d]">
-              {statusLabel(activeOrder.status, t)}
-            </span>
+          <div className="mt-3 grid gap-3">
+            {activeOrders.map((activeOrder) => (
+              <div key={activeOrder.id} className="rounded-lg border border-[#d9e3df] p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-2xl font-bold">{activeOrder.itemName} ×{activeOrder.quantity}</h2>
+                    <p className="mt-1 text-sm font-medium text-[#53625d]">
+                      {t.orderShort} {activeOrder.id.slice(-8)} / {formatUsdc(activeOrder.priceUsdc)} USDC
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-[#eef4f1] px-3 py-2 text-sm font-bold text-[#53625d]">
+                    {statusLabel(activeOrder.status, t)}
+                  </span>
+                </div>
+                {activeOrder.status === "served" ? (
+                  <button
+                    className="touch-button buy-button mt-4 w-full text-lg"
+                    type="button"
+                    style={themedButtonStyle}
+                    onClick={() => onConfirmServedOrder(activeOrder)}
+                  >
+                    {t.receivedPay}
+                  </button>
+                ) : null}
+              </div>
+            ))}
           </div>
-          {activeOrder.status === "served" ? (
-            <button
-              className="touch-button buy-button mt-4 w-full text-lg"
-              type="button"
-              style={themedButtonStyle}
-              onClick={() => onConfirmServedOrder(activeOrder)}
-            >
-              {t.receivedPay}
-            </button>
-          ) : null}
-          {activeOrder.status === "paid" ? (
-            <p className="mt-4 rounded-lg bg-[#e7f4ef] px-4 py-3 text-center text-base font-bold text-[#0f6b57]">
-              {t.paidSynced}
-            </p>
-          ) : null}
         </section>
       ) : null}
 
@@ -2109,7 +2109,7 @@ function CustomerScreen({
           const hasWallet = Boolean(walletAddress);
           const soldOut = isSoldOut(shop);
           const needsWalletBeforeOrder = paymentMode === "arc-mainnet" && paymentTiming === "prepaid" && !hasWallet;
-          const canStartOrder = !activeOrder && !soldOut && (paymentMode === "arc-mainnet" ? hasRecipient : true);
+          const canStartOrder = !soldOut && (paymentMode === "arc-mainnet" ? hasRecipient : true);
           const buttonLabel =
             soldOut
               ? t.soldOut
@@ -2118,8 +2118,6 @@ function CustomerScreen({
                 ? t.preparing
                 : needsWalletBeforeOrder
                   ? t.connectWallet
-                : activeOrder
-                  ? t.ordering
                   : t.order
               : canStartOrder
                 ? (lang === "en" ? "Order" : t.order)
