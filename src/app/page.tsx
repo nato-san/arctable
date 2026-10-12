@@ -42,6 +42,7 @@ const copy = {
     customerNotice: "Payment is requested after the order is served.",
     walletTitle: "USDC wallet",
     connectWallet: "Connect wallet",
+    switchWallet: "Change wallet",
     connectedWallet: "Connected wallet",
     receivedPay: "Received / Pay",
     paidSynced: "PAID. The merchant dashboard has been updated.",
@@ -196,6 +197,7 @@ const copy = {
     customerNotice: "商品提供後に会計します。",
     walletTitle: "USDCウォレット",
     connectWallet: "ウォレット接続",
+    switchWallet: "ウォレット変更",
     connectedWallet: "接続中のウォレット",
     receivedPay: "受け取り確認 / 支払いへ",
     paidSynced: "PAID。店舗画面にも反映されています。",
@@ -2018,6 +2020,13 @@ function CustomerScreen({
             <>
               <p className="mt-2 font-mono text-2xl font-bold">{shortHash(walletAddress)}</p>
               <p className="mt-1 text-4xl font-bold">{walletBalanceUsdc === null ? "--" : formatUsdc(walletBalanceUsdc)} USDC</p>
+              <button
+                className="touch-button mt-3 w-full bg-white text-lg"
+                type="button"
+                onClick={onConnectWallet}
+              >
+                {t.switchWallet}
+              </button>
             </>
           ) : (
             <button className="touch-button buy-button mt-3 w-full text-lg" type="button" style={themedButtonStyle} onClick={onConnectWallet}>
