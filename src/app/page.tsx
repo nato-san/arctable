@@ -1539,7 +1539,7 @@ export default function Home() {
                   <button className="touch-button small-button hidden sm:block" type="button" onClick={() => setScreen("merchant-help")}>
                     {t.howToUse}
                   </button>
-                  <button className="touch-button small-button hidden sm:block" type="button" onClick={() => setScreen("reports")}>
+                  <button className="touch-button small-button hidden bg-[#fff4c2] text-[#4a3500] sm:block" type="button" onClick={() => setScreen("reports")}>
                     {t.salesReports}
                   </button>
                   <button className="touch-button small-button" type="button" onClick={() => setScreen("settings")}>
@@ -1620,7 +1620,6 @@ export default function Home() {
             lang={lang}
             onSelectShop={setSelectedShopId}
             onOpenTables={() => setScreen("tables")}
-            onOpenReports={() => setScreen("reports")}
             onCompleteOrder={(order) => void completeHandOver(order)}
             onCancelOrder={(orderId) => void cancelStoreOrder(orderId)}
             onCloseSales={() => void closeCurrentSales()}
@@ -2492,7 +2491,6 @@ function MerchantScreen({
   lang,
   onSelectShop,
   onOpenTables,
-  onOpenReports,
   onCompleteOrder,
   onCancelOrder,
   onCloseSales,
@@ -2519,7 +2517,6 @@ function MerchantScreen({
   lang: Lang;
   onSelectShop: (shopId: string) => void;
   onOpenTables: () => void;
-  onOpenReports: () => void;
   onCompleteOrder: (order: PaymentRecord) => void;
   onCancelOrder: (orderId: string) => void;
   onCloseSales: () => void;
@@ -2564,13 +2561,6 @@ function MerchantScreen({
           onClick={onOpenTables}
         >
           {t.tableSettings}
-        </button>
-        <button
-          className="rounded-md border border-[#f8d45d]/30 bg-[#3a382b] px-3 py-3 text-sm font-black text-[#fff4c2]"
-          type="button"
-          onClick={onOpenReports}
-        >
-          {t.salesReports}
         </button>
       </div>
 
