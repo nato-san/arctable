@@ -11,7 +11,7 @@ import type { Customer, CustomerTheme, StoreResponse, StoreState, PaymentMode, P
 import { ARC_MAINNET_CHAIN_ID, ARC_MAINNET_EXPLORER_URL } from "@/lib/arc-mainnet-config";
 import { wagmiAdapter } from "./providers";
 
-type Screen = "home" | "customer" | "merchant" | "settings" | "tables" | "customer-help" | "settings-help" | "merchant-help";
+type Screen = "home" | "customer" | "merchant" | "settings" | "tables" | "reports" | "customer-help" | "settings-help" | "merchant-help";
 type Lang = "en" | "ja";
 
 const copy = {
@@ -35,6 +35,18 @@ const copy = {
     closeSalesFailed: "Could not close sales",
     noSalesToClose: "No paid sales to close",
     salesReports: "Sales Reports",
+    salesReportPage: "Sales report page",
+    salesCalendar: "Sales calendar",
+    salesReportDetail: "Sales detail",
+    dailyTotal: "Daily total",
+    monthlyTotal: "Monthly total",
+    reportCount: "Reports",
+    closedAt: "Closed at",
+    itemBreakdown: "Item breakdown",
+    transactionEvidence: "Transaction evidence",
+    noReportsForDay: "Select a date with closed sales.",
+    previousMonth: "Previous month",
+    nextMonth: "Next month",
     noSalesReports: "No closed reports yet",
     closedReportDetails: "Closed order details",
     reportOrders: "orders",
@@ -202,6 +214,18 @@ const copy = {
     closeSalesFailed: "売上を締められませんでした",
     noSalesToClose: "締める支払済み売上がありません",
     salesReports: "売上レポート",
+    salesReportPage: "売上レポートページ",
+    salesCalendar: "売上カレンダー",
+    salesReportDetail: "売上詳細",
+    dailyTotal: "日別合計",
+    monthlyTotal: "月間合計",
+    reportCount: "レポート",
+    closedAt: "締め時刻",
+    itemBreakdown: "商品別内訳",
+    transactionEvidence: "取引記録",
+    noReportsForDay: "締め済み売上のある日付を選択してください。",
+    previousMonth: "前の月",
+    nextMonth: "次の月",
     noSalesReports: "締め済みレポートはまだありません",
     closedReportDetails: "締め済み注文",
     reportOrders: "件",
@@ -486,6 +510,7 @@ function getScreenParam(value: string | null): Screen | null {
     value === "merchant" ||
     value === "settings" ||
     value === "tables" ||
+    value === "reports" ||
     value === "customer-help" ||
     value === "settings-help" ||
     value === "merchant-help"
@@ -610,6 +635,29 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
+function formatDateKey(value: string) {
+  const date = new Date(value);
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatDateLabel(value: string, lang: Lang) {
+  return new Intl.DateTimeFormat(lang === "ja" ? "ja-JP" : "en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  }).format(new Date(`${value}T00:00:00`));
+}
+
+function formatMonthLabel(year: number, monthIndex: number, lang: Lang) {
+  return new Intl.DateTimeFormat(lang === "ja" ? "ja-JP" : "en-US", {
+    year: "numeric",
+    month: "long",
+  }).format(new Date(year, monthIndex, 1));
+}
+
 function createId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
@@ -671,7 +719,7 @@ export default function Home() {
   const [successPaymentId, setSuccessPaymentId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string>(copy.en.loading);
   const [walletMessage, setWalletMessage] = useState("");
-  const isManagerScreen = screen === "merchant" || screen === "settings" || screen === "tables" || screen === "settings-help" || screen === "merchant-help";
+  const isManagerScreen = screen === "merchant" || screen === "settings" || screen === "tables" || screen === "reports" || screen === "settings-help" || screen === "merchant-help";
 
   useEffect(() => {
     const activeStoreId = getStoreId();
@@ -773,7 +821,7 @@ export default function Home() {
     }
 
     void refresh();
-    const shouldKeepRefreshing = screen === "customer" || screen === "customer-help" || screen === "merchant";
+    const shouldKeepRefreshing = screen === "customer" || screen === "customer-help" || screen === "merchant" || screen === "reports";
     const timer = shouldKeepRefreshing ? window.setInterval(refresh, 5000) : null;
 
     return () => {
@@ -1457,7 +1505,7 @@ export default function Home() {
       setScreen("merchant");
       return;
     }
-    setScreen(screen === "settings" || screen === "tables" ? "merchant" : "home");
+    setScreen(screen === "settings" || screen === "tables" || screen === "reports" ? "merchant" : "home");
   }
 
   const showHeaderBackButton = screen !== "customer";
@@ -1490,6 +1538,9 @@ export default function Home() {
                   </button>
                   <button className="touch-button small-button hidden sm:block" type="button" onClick={() => setScreen("merchant-help")}>
                     {t.howToUse}
+                  </button>
+                  <button className="touch-button small-button hidden sm:block" type="button" onClick={() => setScreen("reports")}>
+                    {t.salesReports}
                   </button>
                   <button className="touch-button small-button" type="button" onClick={() => setScreen("settings")}>
                     {t.settings}
@@ -1562,7 +1613,6 @@ export default function Home() {
             selectedShopId={effectiveSelectedShopId}
             selectedStats={selectedStats}
             shopStats={shopStats}
-            salesReports={store.salesReports}
             total={storeTotal}
             paymentMode={store.paymentMode}
             recipientAddress={store.recipientAddress}
@@ -1570,9 +1620,19 @@ export default function Home() {
             lang={lang}
             onSelectShop={setSelectedShopId}
             onOpenTables={() => setScreen("tables")}
+            onOpenReports={() => setScreen("reports")}
             onCompleteOrder={(order) => void completeHandOver(order)}
             onCancelOrder={(orderId) => void cancelStoreOrder(orderId)}
             onCloseSales={() => void closeCurrentSales()}
+          />
+        ) : null}
+
+        {screen === "reports" ? (
+          <SalesReportsScreen
+            salesReports={store.salesReports}
+            shopStats={shopStats}
+            t={t}
+            lang={lang}
           />
         ) : null}
 
@@ -2425,7 +2485,6 @@ function MerchantScreen({
   selectedShopId,
   selectedStats,
   shopStats,
-  salesReports,
   total,
   paymentMode,
   recipientAddress,
@@ -2433,6 +2492,7 @@ function MerchantScreen({
   lang,
   onSelectShop,
   onOpenTables,
+  onOpenReports,
   onCompleteOrder,
   onCancelOrder,
   onCloseSales,
@@ -2452,7 +2512,6 @@ function MerchantScreen({
     sales: number;
     count: number;
   }[];
-  salesReports: SalesReport[];
   total: number;
   paymentMode: PaymentMode;
   recipientAddress?: string;
@@ -2460,6 +2519,7 @@ function MerchantScreen({
   lang: Lang;
   onSelectShop: (shopId: string) => void;
   onOpenTables: () => void;
+  onOpenReports: () => void;
   onCompleteOrder: (order: PaymentRecord) => void;
   onCancelOrder: (orderId: string) => void;
   onCloseSales: () => void;
@@ -2472,15 +2532,6 @@ function MerchantScreen({
     .flatMap(({ records }) => records)
     .filter((record) => !record.closedAt)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  const closedRecordsByReportId = new Map(
-    salesReports.map((report) => [
-      report.id,
-      shopStats
-        .flatMap(({ records }) => records)
-        .filter((record) => record.salesReportId === report.id)
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
-    ]),
-  );
   const managerUrl =
     typeof window === "undefined" || !storeId || !adminToken
       ? ""
@@ -2513,6 +2564,13 @@ function MerchantScreen({
           onClick={onOpenTables}
         >
           {t.tableSettings}
+        </button>
+        <button
+          className="rounded-md border border-[#f8d45d]/30 bg-[#3a382b] px-3 py-3 text-sm font-black text-[#fff4c2]"
+          type="button"
+          onClick={onOpenReports}
+        >
+          {t.salesReports}
         </button>
       </div>
 
@@ -2565,47 +2623,6 @@ function MerchantScreen({
           {t.setRecipient}
         </p>
       ) : null}
-
-      <section className="mt-5 rounded-lg border border-white/10 bg-[#101715]">
-        <div className="border-b border-white/10 px-4 py-3">
-          <h2 className="text-sm font-black uppercase tracking-[0.16em] text-[#99dac7]">{t.salesReports}</h2>
-        </div>
-        <div className="divide-y divide-white/10">
-          {salesReports.length > 0 ? (
-            salesReports.slice(0, 6).map((report) => (
-              <div key={report.id} className="grid gap-2 px-4 py-4 sm:grid-cols-[1fr_auto] sm:items-center">
-                <div>
-                  <p className="font-bold">{report.title}</p>
-                  <p className="mt-1 text-xs font-bold text-white/55">
-                    {formatDateTime(report.periodStart)} - {formatDateTime(report.periodEnd)}
-                  </p>
-                  <p className="mt-1 text-xs font-bold text-[#99dac7]">
-                    {report.orderCount} {t.reportOrders}
-                  </p>
-                  <details className="mt-3 rounded-md border border-white/10 bg-white/5 p-3">
-                    <summary className="cursor-pointer text-xs font-black uppercase tracking-[0.14em] text-[#99dac7]">
-                      {t.closedReportDetails}
-                    </summary>
-                    <div className="mt-3 grid gap-2">
-                      {(closedRecordsByReportId.get(report.id) || []).map((record) => (
-                        <div key={record.id} className="flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-white/70">
-                          <span>
-                            {record.itemName} ×{record.quantity} / {record.tableId ? `${t.tableLabel} ${record.tableId}` : t.orderShort}
-                          </span>
-                          <span className="font-mono text-[#f8d45d]">{formatUsdc(record.priceUsdc)} USDC</span>
-                        </div>
-                      ))}
-                    </div>
-                  </details>
-                </div>
-                <p className="font-mono text-lg font-black text-[#f8d45d]">{formatUsdc(report.totalUsdc)} USDC</p>
-              </div>
-            ))
-          ) : (
-            <p className="px-4 py-8 text-center text-sm font-bold text-white/55">{t.noSalesReports}</p>
-          )}
-        </div>
-      </section>
 
       <section className="mt-5 rounded-lg border border-white/10 bg-[#101715]">
         <div className="border-b border-white/10 px-4 py-3">
@@ -2692,6 +2709,225 @@ function MerchantScreen({
             ))
           ) : (
             <p className="px-4 py-10 text-center text-sm font-bold text-white/55">{t.noOrders}</p>
+          )}
+        </div>
+      </section>
+    </section>
+  );
+}
+
+function SalesReportsScreen({
+  salesReports,
+  shopStats,
+  t,
+  lang,
+}: {
+  salesReports: SalesReport[];
+  shopStats: {
+    shop: Shop;
+    records: ShopStats["records"];
+    sales: number;
+    count: number;
+  }[];
+  t: Copy;
+  lang: Lang;
+}) {
+  const allClosedRecords = useMemo(
+    () => shopStats.flatMap(({ records }) => records).filter((record) => record.closedAt),
+    [shopStats],
+  );
+  const latestReportDate = salesReports[0]?.closedAt ? new Date(salesReports[0].closedAt) : new Date();
+  const [visibleMonth, setVisibleMonth] = useState({
+    year: latestReportDate.getFullYear(),
+    month: latestReportDate.getMonth(),
+  });
+  const reportsByDate = useMemo(() => {
+    const grouped = new Map<string, SalesReport[]>();
+    salesReports.forEach((report) => {
+      const key = formatDateKey(report.closedAt);
+      grouped.set(key, [...(grouped.get(key) || []), report]);
+    });
+    grouped.forEach((reports, key) => {
+      grouped.set(
+        key,
+        reports.sort((a, b) => new Date(b.closedAt).getTime() - new Date(a.closedAt).getTime()),
+      );
+    });
+    return grouped;
+  }, [salesReports]);
+  const initialSelectedDate = salesReports[0]?.closedAt ? formatDateKey(salesReports[0].closedAt) : "";
+  const [selectedDate, setSelectedDate] = useState("");
+  const activeSelectedDate = selectedDate || initialSelectedDate;
+  const selectedReports = activeSelectedDate ? reportsByDate.get(activeSelectedDate) || [] : [];
+  const closedRecordsByReportId = useMemo(
+    () =>
+      new Map(
+        salesReports.map((report) => [
+          report.id,
+          allClosedRecords
+            .filter((record) => record.salesReportId === report.id)
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+        ]),
+      ),
+    [allClosedRecords, salesReports],
+  );
+  const monthReports = salesReports.filter((report) => {
+    const date = new Date(report.closedAt);
+    return date.getFullYear() === visibleMonth.year && date.getMonth() === visibleMonth.month;
+  });
+  const monthTotal = monthReports.reduce((sum, report) => sum + report.totalUsdc, 0);
+  const firstDay = new Date(visibleMonth.year, visibleMonth.month, 1);
+  const daysInMonth = new Date(visibleMonth.year, visibleMonth.month + 1, 0).getDate();
+  const leadingBlankDays = firstDay.getDay();
+  const calendarCells = [
+    ...Array.from({ length: leadingBlankDays }, (_, index) => ({ key: `blank-${index}`, day: 0, dateKey: "" })),
+    ...Array.from({ length: daysInMonth }, (_, index) => {
+      const day = index + 1;
+      const dateKey = `${visibleMonth.year}-${`${visibleMonth.month + 1}`.padStart(2, "0")}-${`${day}`.padStart(2, "0")}`;
+      return { key: dateKey, day, dateKey };
+    }),
+  ];
+
+  function moveMonth(direction: -1 | 1) {
+    const next = new Date(visibleMonth.year, visibleMonth.month + direction, 1);
+    setVisibleMonth({ year: next.getFullYear(), month: next.getMonth() });
+  }
+
+  return (
+    <section className="flex-1 bg-[#17201d] px-4 py-5 text-white">
+      <div className="rounded-lg border border-white/10 bg-[#22312c] p-4">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#99dac7]">{t.salesReportPage}</p>
+        <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-4xl font-black">{formatUsdc(monthTotal)} USDC</p>
+            <p className="mt-1 text-sm font-bold text-white/60">{t.monthlyTotal}</p>
+          </div>
+          <p className="pb-1 text-sm font-bold text-white/70">
+            {monthReports.length} {t.reportCount}
+          </p>
+        </div>
+      </div>
+
+      <section className="mt-5 rounded-lg border border-white/10 bg-[#101715]">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+          <h2 className="text-sm font-black uppercase tracking-[0.16em] text-[#99dac7]">{t.salesCalendar}</h2>
+          <div className="flex items-center gap-2">
+            <button className="rounded-md bg-white/10 px-3 py-2 text-xs font-black text-white" type="button" onClick={() => moveMonth(-1)}>
+              {t.previousMonth}
+            </button>
+            <p className="min-w-32 text-center text-sm font-black">{formatMonthLabel(visibleMonth.year, visibleMonth.month, lang)}</p>
+            <button className="rounded-md bg-white/10 px-3 py-2 text-xs font-black text-white" type="button" onClick={() => moveMonth(1)}>
+              {t.nextMonth}
+            </button>
+          </div>
+        </div>
+        <div className="grid grid-cols-7 gap-px bg-white/10 p-px">
+          {calendarCells.map((cell) => {
+            const reports = cell.dateKey ? reportsByDate.get(cell.dateKey) || [] : [];
+            const dailyTotal = reports.reduce((sum, report) => sum + report.totalUsdc, 0);
+            const isSelected = cell.dateKey && cell.dateKey === activeSelectedDate;
+            return (
+              <button
+                key={cell.key}
+                className={`min-h-24 bg-[#101715] p-2 text-left transition ${
+                  isSelected ? "outline outline-2 outline-[#f8d45d]" : reports.length > 0 ? "hover:bg-[#1f2d28]" : ""
+                } ${cell.day === 0 ? "opacity-30" : ""}`}
+                type="button"
+                disabled={!cell.dateKey || reports.length === 0}
+                onClick={() => setSelectedDate(cell.dateKey)}
+              >
+                {cell.day > 0 ? (
+                  <>
+                    <p className="text-xs font-black text-white/65">{cell.day}</p>
+                    {reports.length > 0 ? (
+                      <div className="mt-2 rounded-md bg-[#f8d45d]/15 px-2 py-2">
+                        <p className="font-mono text-sm font-black text-[#f8d45d]">{formatUsdc(dailyTotal)}</p>
+                        <p className="mt-1 text-[0.65rem] font-black text-white/60">
+                          {reports.length} {t.reportCount}
+                        </p>
+                      </div>
+                    ) : null}
+                  </>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="mt-5 rounded-lg border border-white/10 bg-[#101715]">
+        <div className="border-b border-white/10 px-4 py-3">
+          <h2 className="text-sm font-black uppercase tracking-[0.16em] text-[#99dac7]">{t.salesReportDetail}</h2>
+          {activeSelectedDate ? <p className="mt-1 text-sm font-bold text-white/60">{formatDateLabel(activeSelectedDate, lang)}</p> : null}
+        </div>
+        <div className="divide-y divide-white/10">
+          {selectedReports.length > 0 ? (
+            selectedReports.map((report) => {
+              const records = closedRecordsByReportId.get(report.id) || [];
+              return (
+                <div key={report.id} className="px-4 py-4">
+                  <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-start">
+                    <div>
+                      <p className="font-bold">{report.title}</p>
+                      <p className="mt-1 text-xs font-bold text-white/55">
+                        {t.closedAt}: {formatDateTime(report.closedAt)}
+                      </p>
+                      <p className="mt-1 text-xs font-bold text-white/55">
+                        {formatDateTime(report.periodStart)} - {formatDateTime(report.periodEnd)}
+                      </p>
+                      <p className="mt-1 text-xs font-bold text-[#99dac7]">
+                        {report.orderCount} {t.reportOrders}
+                      </p>
+                    </div>
+                    <p className="font-mono text-lg font-black text-[#f8d45d]">{formatUsdc(report.totalUsdc)} USDC</p>
+                  </div>
+
+                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    <div className="rounded-md border border-white/10 bg-white/5 p-3">
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#99dac7]">{t.itemBreakdown}</p>
+                      <div className="mt-3 grid gap-2">
+                        {report.itemBreakdown.map((item) => (
+                          <div key={`${report.id}-${item.shopId}`} className="flex items-center justify-between gap-3 text-xs font-bold text-white/70">
+                            <span>{item.itemName} ×{item.quantity}</span>
+                            <span className="font-mono text-[#f8d45d]">{formatUsdc(item.totalUsdc)} USDC</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="rounded-md border border-white/10 bg-white/5 p-3">
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#99dac7]">{t.closedReportDetails}</p>
+                      <div className="mt-3 grid gap-2">
+                        {records.map((record) => (
+                          <div key={record.id} className="rounded-md bg-black/10 p-2 text-xs font-bold text-white/70">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span>
+                                {record.itemName} ×{record.quantity} / {record.tableId ? `${t.tableLabel} ${record.tableId}` : t.orderShort}
+                              </span>
+                              <span className="font-mono text-[#f8d45d]">{formatUsdc(record.priceUsdc)} USDC</span>
+                            </div>
+                            {record.transactionHash ? (
+                              <a
+                                className="mt-2 inline-block break-all text-[#f8d45d] underline"
+                                href={getTransactionUrl(record.transactionHash)}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                {t.transactionEvidence}: {shortHash(record.transactionHash)}
+                              </a>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <p className="px-4 py-10 text-center text-sm font-bold text-white/55">
+              {salesReports.length > 0 ? t.noReportsForDay : t.noSalesReports}
+            </p>
           )}
         </div>
       </section>
