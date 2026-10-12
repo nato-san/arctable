@@ -128,6 +128,7 @@ Reservations, coupons, NFTs, points, user accounts, reviews, multi-store managem
 
 ## Roadmap
 
+- On-chain sales report anchoring: create a daily closing report hash and record only that hash on Arc. Merchants can keep detailed order data private while still having tamper-evident proof that the sales report existed at closing time.
 - Store-local wallet warning history: record unpaid or abandoned wallet-connected orders within a store, show a warning marker on future visits, and escalate after repeated incidents. This is intentionally store-local rather than a global blacklist.
 
 ## Development Process
