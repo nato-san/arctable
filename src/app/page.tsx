@@ -36,6 +36,7 @@ const copy = {
     noSalesToClose: "No paid sales to close",
     salesReports: "Sales Reports",
     noSalesReports: "No closed reports yet",
+    closedReportDetails: "Closed order details",
     reportOrders: "orders",
     orders: "Orders",
     currentOrder: "Current Orders",
@@ -202,6 +203,7 @@ const copy = {
     noSalesToClose: "締める支払済み売上がありません",
     salesReports: "売上レポート",
     noSalesReports: "締め済みレポートはまだありません",
+    closedReportDetails: "締め済み注文",
     reportOrders: "件",
     orders: "注文",
     currentOrder: "現在の注文",
@@ -2468,7 +2470,17 @@ function MerchantScreen({
 
   const allRecords = shopStats
     .flatMap(({ records }) => records)
+    .filter((record) => !record.closedAt)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const closedRecordsByReportId = new Map(
+    salesReports.map((report) => [
+      report.id,
+      shopStats
+        .flatMap(({ records }) => records)
+        .filter((record) => record.salesReportId === report.id)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    ]),
+  );
   const managerUrl =
     typeof window === "undefined" || !storeId || !adminToken
       ? ""
@@ -2570,6 +2582,21 @@ function MerchantScreen({
                   <p className="mt-1 text-xs font-bold text-[#99dac7]">
                     {report.orderCount} {t.reportOrders}
                   </p>
+                  <details className="mt-3 rounded-md border border-white/10 bg-white/5 p-3">
+                    <summary className="cursor-pointer text-xs font-black uppercase tracking-[0.14em] text-[#99dac7]">
+                      {t.closedReportDetails}
+                    </summary>
+                    <div className="mt-3 grid gap-2">
+                      {(closedRecordsByReportId.get(report.id) || []).map((record) => (
+                        <div key={record.id} className="flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-white/70">
+                          <span>
+                            {record.itemName} ×{record.quantity} / {record.tableId ? `${t.tableLabel} ${record.tableId}` : t.orderShort}
+                          </span>
+                          <span className="font-mono text-[#f8d45d]">{formatUsdc(record.priceUsdc)} USDC</span>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
                 </div>
                 <p className="font-mono text-lg font-black text-[#f8d45d]">{formatUsdc(report.totalUsdc)} USDC</p>
               </div>
