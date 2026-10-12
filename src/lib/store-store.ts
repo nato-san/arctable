@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { createPublicClient, formatEther, getAddress, http, parseEther, type Hash } from "viem";
 import { arcMainnet } from "./arc-mainnet";
-import type { Customer, CustomerTheme, StoreState, PaymentMode, PaymentRecord, PaymentTiming, Shop } from "./store-types";
+import type { Customer, CustomerTheme, StoreState, PaymentMode, PaymentRecord, PaymentTiming, SalesReport, Shop } from "./store-types";
 
 const DATA_DIR = process.env.VERCEL ? path.join(os.tmpdir(), "arctable-data") : path.join(process.cwd(), "data");
 const STORES_DIR = path.join(DATA_DIR, "stores");
@@ -58,6 +58,7 @@ const initialState: StoreState = {
   shops: defaultShops,
   customers: [],
   payments: [],
+  salesReports: [],
 };
 
 export function calculateUsdcPrice(priceJpy: number, exchangeRateJpyPerUsdc: number) {
@@ -386,6 +387,21 @@ function normalizeState(parsed: Partial<StoreState>): StoreState {
     shops,
     customers,
     payments: Array.isArray(parsed.payments) ? parsed.payments.map(normalizePayment) : [],
+    salesReports: Array.isArray(parsed.salesReports) ? parsed.salesReports.map(normalizeSalesReport) : [],
+  };
+}
+
+function normalizeSalesReport(report: SalesReport): SalesReport {
+  return {
+    id: typeof report.id === "string" ? report.id : createId("report"),
+    title: typeof report.title === "string" ? report.title : "Sales report",
+    periodStart: typeof report.periodStart === "string" ? report.periodStart : new Date().toISOString(),
+    periodEnd: typeof report.periodEnd === "string" ? report.periodEnd : new Date().toISOString(),
+    closedAt: typeof report.closedAt === "string" ? report.closedAt : new Date().toISOString(),
+    totalUsdc: typeof report.totalUsdc === "number" ? report.totalUsdc : 0,
+    orderCount: typeof report.orderCount === "number" ? report.orderCount : 0,
+    itemBreakdown: Array.isArray(report.itemBreakdown) ? report.itemBreakdown : [],
+    orderIds: Array.isArray(report.orderIds) ? report.orderIds : [],
   };
 }
 
@@ -828,6 +844,73 @@ export async function completeOrder(storeId: string, orderId: string) {
   return { ok: true as const, state: nextState };
 }
 
+export async function closeSales(storeId: string) {
+  const normalizedStoreId = normalizeStoreId(storeId);
+  const state = await readState(normalizedStoreId);
+  const targetPayments = state.payments.filter(
+    (payment) => ["paid", "completed"].includes(payment.status) && !payment.closedAt,
+  );
+
+  if (targetPayments.length === 0) {
+    return { ok: false as const, reason: "no_sales_to_close", state };
+  }
+
+  const now = new Date().toISOString();
+  const reportId = createId("report");
+  const periodStart = targetPayments.reduce(
+    (oldest, payment) => (new Date(payment.createdAt).getTime() < new Date(oldest).getTime() ? payment.createdAt : oldest),
+    targetPayments[0]?.createdAt || now,
+  );
+  const itemBreakdown = Array.from(
+    targetPayments.reduce((map, payment) => {
+      const current = map.get(payment.shopId) || {
+        shopId: payment.shopId,
+        itemName: payment.itemName,
+        quantity: 0,
+        totalUsdc: 0,
+      };
+      current.quantity += payment.quantity;
+      current.totalUsdc += payment.priceUsdc;
+      map.set(payment.shopId, current);
+      return map;
+    }, new Map<string, SalesReport["itemBreakdown"][number]>()),
+  ).map(([, item]) => item);
+  const report: SalesReport = {
+    id: reportId,
+    title: new Intl.DateTimeFormat("en-CA", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(now)),
+    periodStart,
+    periodEnd: now,
+    closedAt: now,
+    totalUsdc: targetPayments.reduce((sum, payment) => sum + payment.priceUsdc, 0),
+    orderCount: targetPayments.length,
+    itemBreakdown,
+    orderIds: targetPayments.map((payment) => payment.id),
+  };
+  const targetIds = new Set(report.orderIds);
+  const nextState: StoreState = {
+    ...state,
+    payments: state.payments.map((payment) =>
+      targetIds.has(payment.id)
+        ? {
+            ...payment,
+            closedAt: now,
+            salesReportId: reportId,
+          }
+        : payment,
+    ),
+    salesReports: [report, ...state.salesReports],
+  };
+  await saveState(normalizedStoreId, nextState);
+
+  return { ok: true as const, report, state: nextState };
+}
+
 export async function serveOrder(storeId: string, orderId: string) {
   const normalizedStoreId = normalizeStoreId(storeId);
   const state = await readState(normalizedStoreId);
@@ -896,6 +979,7 @@ export async function resetStoreActivity(storeId: string) {
     ...state,
     customers: state.customers.map((customer) => ({ ...customer, balanceUsdc: INITIAL_BALANCE })),
     payments: [],
+    salesReports: [],
   };
 
   await saveState(normalizedStoreId, nextState);

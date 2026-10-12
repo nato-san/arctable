@@ -7,7 +7,7 @@ import { formatEther, parseEther, type Address } from "viem";
 import { useAppKit } from "@reown/appkit/react";
 import { sendTransaction, switchChain } from "wagmi/actions";
 import { useAccount, useBalance } from "wagmi";
-import type { Customer, CustomerTheme, StoreResponse, StoreState, PaymentMode, PaymentRecord, PaymentTiming, Shop, ShopStats } from "@/lib/store-types";
+import type { Customer, CustomerTheme, StoreResponse, StoreState, PaymentMode, PaymentRecord, PaymentTiming, SalesReport, Shop, ShopStats } from "@/lib/store-types";
 import { ARC_MAINNET_CHAIN_ID, ARC_MAINNET_EXPLORER_URL } from "@/lib/arc-mainnet-config";
 import { wagmiAdapter } from "./providers";
 
@@ -29,6 +29,14 @@ const copy = {
     customerView: "Customer View",
     merchantView: "Merchant View",
     paidTotal: "Paid Total",
+    unclosedSales: "Open Sales",
+    closeSales: "Close sales",
+    closingSales: "Closing sales",
+    closeSalesFailed: "Could not close sales",
+    noSalesToClose: "No paid sales to close",
+    salesReports: "Sales Reports",
+    noSalesReports: "No closed reports yet",
+    reportOrders: "orders",
     orders: "Orders",
     currentOrder: "Current Orders",
     served: "Served",
@@ -187,6 +195,14 @@ const copy = {
     customerView: "注文画面",
     merchantView: "店舗画面",
     paidTotal: "支払済み合計",
+    unclosedSales: "未締め売上",
+    closeSales: "売上を締める",
+    closingSales: "売上を締めています",
+    closeSalesFailed: "売上を締められませんでした",
+    noSalesToClose: "締める支払済み売上がありません",
+    salesReports: "売上レポート",
+    noSalesReports: "締め済みレポートはまだありません",
+    reportOrders: "件",
     orders: "注文",
     currentOrder: "現在の注文",
     served: "提供済み",
@@ -388,6 +404,7 @@ const initialState: StoreState = {
   shops: fallbackShops,
   customers: [],
   payments: [],
+  salesReports: [],
 };
 
 const fallbackCustomer: Customer = {
@@ -582,6 +599,15 @@ function formatTime(value: string) {
   }).format(new Date(value));
 }
 
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("ja-JP", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
 function createId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
@@ -727,6 +753,7 @@ export default function Home() {
             shops: nextStore.shops,
             customers: nextStore.customers,
             payments: nextStore.payments,
+            salesReports: nextStore.salesReports || [],
           });
         }
         if (nextStore.currentCustomer) {
@@ -771,10 +798,9 @@ export default function Home() {
       const records = store.payments.filter((payment) => payment.shopId === shop.id);
       const confirmedRecords = records.filter(
         (payment) =>
-          payment.status === "paid" ||
-          payment.status === "completed",
+          (payment.status === "paid" || payment.status === "completed") && !payment.closedAt,
       );
-      const sales = confirmedRecords.reduce((sum, payment) => sum + payment.priceUsdc * payment.quantity, 0);
+      const sales = confirmedRecords.reduce((sum, payment) => sum + payment.priceUsdc, 0);
 
       return {
         shop,
@@ -807,6 +833,7 @@ export default function Home() {
       shops: nextStore.shops,
       customers: nextStore.customers,
       payments: nextStore.payments,
+      salesReports: nextStore.salesReports || [],
     });
     if (nextStore.currentCustomer) {
       setCurrentCustomer(nextStore.currentCustomer);
@@ -988,6 +1015,7 @@ export default function Home() {
           shops: result.state.shops,
           customers: result.state.customers,
           payments: result.state.payments,
+          salesReports: result.state.salesReports || [],
         });
       }
       setStatusMessage("");
@@ -1222,6 +1250,32 @@ export default function Home() {
       await refreshStore();
     } catch {
       setStatusMessage(t.recordFailed);
+    }
+  }
+
+  async function closeCurrentSales() {
+    if (!storeId) {
+      return;
+    }
+
+    setStatusMessage(t.closingSales);
+    try {
+      const response = await fetch("/api/store", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "close_sales", storeId, adminToken }),
+      });
+
+      if (!response.ok) {
+        setStatusMessage(t.noSalesToClose);
+        await refreshStore();
+        return;
+      }
+
+      setStatusMessage("");
+      await refreshStore();
+    } catch {
+      setStatusMessage(t.closeSalesFailed);
     }
   }
 
@@ -1506,6 +1560,7 @@ export default function Home() {
             selectedShopId={effectiveSelectedShopId}
             selectedStats={selectedStats}
             shopStats={shopStats}
+            salesReports={store.salesReports}
             total={storeTotal}
             paymentMode={store.paymentMode}
             recipientAddress={store.recipientAddress}
@@ -1515,6 +1570,7 @@ export default function Home() {
             onOpenTables={() => setScreen("tables")}
             onCompleteOrder={(order) => void completeHandOver(order)}
             onCancelOrder={(orderId) => void cancelStoreOrder(orderId)}
+            onCloseSales={() => void closeCurrentSales()}
           />
         ) : null}
 
@@ -2367,6 +2423,7 @@ function MerchantScreen({
   selectedShopId,
   selectedStats,
   shopStats,
+  salesReports,
   total,
   paymentMode,
   recipientAddress,
@@ -2376,6 +2433,7 @@ function MerchantScreen({
   onOpenTables,
   onCompleteOrder,
   onCancelOrder,
+  onCloseSales,
 }: {
   storeId: string;
   adminToken: string;
@@ -2392,6 +2450,7 @@ function MerchantScreen({
     sales: number;
     count: number;
   }[];
+  salesReports: SalesReport[];
   total: number;
   paymentMode: PaymentMode;
   recipientAddress?: string;
@@ -2401,6 +2460,7 @@ function MerchantScreen({
   onOpenTables: () => void;
   onCompleteOrder: (order: PaymentRecord) => void;
   onCancelOrder: (orderId: string) => void;
+  onCloseSales: () => void;
 }) {
   if (!selectedStats) {
     return null;
@@ -2417,13 +2477,21 @@ function MerchantScreen({
   return (
     <section className="flex-1 bg-[#17201d] px-4 py-5 text-white">
       <div className="rounded-lg border border-white/10 bg-[#22312c] p-4">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#99dac7]">{t.paidTotal}</p>
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#99dac7]">{t.unclosedSales}</p>
         <div className="mt-2 flex items-end justify-between gap-4">
           <p className="text-4xl font-black">{formatUsdc(total)} USDC</p>
           <p className="pb-1 text-sm font-bold text-white/70">
             {paymentMode === "arc-mainnet" ? t.arcOnchainLabel : t.testCheckoutLabel}
           </p>
         </div>
+        <button
+          className="mt-4 rounded-md bg-[#f8d45d] px-4 py-3 text-sm font-black text-[#23190b] disabled:opacity-45"
+          type="button"
+          disabled={total <= 0}
+          onClick={onCloseSales}
+        >
+          {t.closeSales}
+        </button>
       </div>
 
       <div className="mt-3 grid gap-2">
@@ -2485,6 +2553,32 @@ function MerchantScreen({
           {t.setRecipient}
         </p>
       ) : null}
+
+      <section className="mt-5 rounded-lg border border-white/10 bg-[#101715]">
+        <div className="border-b border-white/10 px-4 py-3">
+          <h2 className="text-sm font-black uppercase tracking-[0.16em] text-[#99dac7]">{t.salesReports}</h2>
+        </div>
+        <div className="divide-y divide-white/10">
+          {salesReports.length > 0 ? (
+            salesReports.slice(0, 6).map((report) => (
+              <div key={report.id} className="grid gap-2 px-4 py-4 sm:grid-cols-[1fr_auto] sm:items-center">
+                <div>
+                  <p className="font-bold">{report.title}</p>
+                  <p className="mt-1 text-xs font-bold text-white/55">
+                    {formatDateTime(report.periodStart)} - {formatDateTime(report.periodEnd)}
+                  </p>
+                  <p className="mt-1 text-xs font-bold text-[#99dac7]">
+                    {report.orderCount} {t.reportOrders}
+                  </p>
+                </div>
+                <p className="font-mono text-lg font-black text-[#f8d45d]">{formatUsdc(report.totalUsdc)} USDC</p>
+              </div>
+            ))
+          ) : (
+            <p className="px-4 py-8 text-center text-sm font-bold text-white/55">{t.noSalesReports}</p>
+          )}
+        </div>
+      </section>
 
       <section className="mt-5 rounded-lg border border-white/10 bg-[#101715]">
         <div className="border-b border-white/10 px-4 py-3">

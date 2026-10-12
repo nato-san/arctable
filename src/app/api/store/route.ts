@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   completeOrder,
   confirmServedOrder,
+  closeSales,
   createOnchainOrder,
   deleteStoreState,
   ensureCustomer,
@@ -90,6 +91,9 @@ type StoreAction = {
   | {
       action: "complete_order";
       orderId: string;
+    }
+  | {
+      action: "close_sales";
     }
   | {
       action: "settings";
@@ -306,6 +310,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: false, reason: "admin_required" }, { status: 403 });
     }
     const result = await completeOrder(storeId, body.orderId);
+    return NextResponse.json(
+      { ...result, state: result.state ? merchantState(result.state) : undefined },
+      { status: result.ok ? 200 : 400 },
+    );
+  }
+
+  if (body.action === "close_sales") {
+    const state = await readState(storeId);
+    if (!hasAdminAccess(state, adminToken)) {
+      return NextResponse.json({ ok: false, reason: "admin_required" }, { status: 403 });
+    }
+    const result = await closeSales(storeId);
     return NextResponse.json(
       { ...result, state: result.state ? merchantState(result.state) : undefined },
       { status: result.ok ? 200 : 400 },

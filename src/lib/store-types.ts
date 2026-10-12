@@ -51,7 +51,26 @@ export type PaymentRecord = {
   submittedAt?: string;
   confirmedAt?: string;
   completedAt?: string;
+  closedAt?: string;
+  salesReportId?: string;
   errorMessage?: string;
+};
+
+export type SalesReport = {
+  id: string;
+  title: string;
+  periodStart: string;
+  periodEnd: string;
+  closedAt: string;
+  totalUsdc: number;
+  orderCount: number;
+  itemBreakdown: {
+    shopId: string;
+    itemName: string;
+    quantity: number;
+    totalUsdc: number;
+  }[];
+  orderIds: string[];
 };
 
 export type PaymentMode = "demo" | "arc-mainnet";
@@ -74,6 +93,7 @@ export type StoreState = {
   shops: Shop[];
   customers: Customer[];
   payments: PaymentRecord[];
+  salesReports: SalesReport[];
 };
 
 export type StoreResponse = StoreState & {
