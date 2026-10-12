@@ -675,7 +675,7 @@ export async function verifyOnchainOrder(storeId: string, orderId: string, trans
   const valueMatches = tx.value >= expectedValue;
   const confirmed = receipt.status === "success" && fromMatches && toMatches && valueMatches;
   const now = new Date().toISOString();
-  const nextStatus: PaymentRecord["status"] = confirmed ? "paid" : "failed";
+  const nextStatus: PaymentRecord["status"] = confirmed ? "paid" : "served";
   const nextState: StoreState = {
     ...state,
     payments: state.payments.map((item) =>
@@ -683,7 +683,7 @@ export async function verifyOnchainOrder(storeId: string, orderId: string, trans
         ? {
             ...item,
             status: nextStatus,
-            transactionHash,
+            transactionHash: confirmed ? transactionHash : undefined,
             blockNumber: Number(receipt.blockNumber),
             gasUsed: receipt.gasUsed.toString(),
             confirmedAt: confirmed ? now : item.confirmedAt,
@@ -697,6 +697,101 @@ export async function verifyOnchainOrder(storeId: string, orderId: string, trans
   await saveState(normalizedStoreId, nextState);
 
   return { ok: confirmed, reason: confirmed ? undefined : "tx_verification_failed", state: nextState };
+}
+
+export async function verifyOnchainOrders(storeId: string, orderIds: string[], transactionHash: string) {
+  const normalizedStoreId = normalizeStoreId(storeId);
+  const state = await readState(normalizedStoreId);
+  const uniqueOrderIds = Array.from(new Set(orderIds));
+  const payments = uniqueOrderIds
+    .map((orderId) => state.payments.find((item) => item.id === orderId))
+    .filter((payment): payment is PaymentRecord => Boolean(payment));
+
+  if (payments.length !== uniqueOrderIds.length || payments.some((payment) => payment.mode !== "arc-mainnet")) {
+    return { ok: false as const, reason: "not_found", state };
+  }
+
+  const recipientAddress = payments[0]?.recipientAddress;
+  const payerAddress = payments[0]?.payerAddress;
+  const paymentDetailsMatch = payments.every(
+    (payment) =>
+      payment.recipientAddress &&
+      payment.payerAddress &&
+      payment.recipientAddress === recipientAddress &&
+      payment.payerAddress === payerAddress,
+  );
+
+  if (!recipientAddress || !payerAddress || !paymentDetailsMatch) {
+    return { ok: false as const, reason: "payment_details_missing", state };
+  }
+
+  const publicClient = createPublicClient({
+    chain: arcMainnet,
+    transport: http(),
+  });
+  const [tx, receipt] = await Promise.all([
+    publicClient.getTransaction({ hash: transactionHash as Hash }),
+    publicClient.getTransactionReceipt({ hash: transactionHash as Hash }),
+  ]);
+  const expectedValue = parseEther(toUsdcAmount(payments.reduce((sum, payment) => sum + payment.priceUsdc, 0)));
+  const fromMatches = getAddress(tx.from) === getAddress(payerAddress);
+  const toMatches = tx.to ? getAddress(tx.to) === getAddress(recipientAddress) : false;
+  const valueMatches = tx.value >= expectedValue;
+  const confirmed = receipt.status === "success" && fromMatches && toMatches && valueMatches;
+  const now = new Date().toISOString();
+  const selectedIds = new Set(uniqueOrderIds);
+  const nextState: StoreState = {
+    ...state,
+    payments: state.payments.map((item) =>
+      selectedIds.has(item.id)
+        ? {
+            ...item,
+            status: confirmed ? "paid" : "served",
+            transactionHash: confirmed ? transactionHash : undefined,
+            blockNumber: Number(receipt.blockNumber),
+            gasUsed: receipt.gasUsed.toString(),
+            confirmedAt: confirmed ? now : item.confirmedAt,
+            errorMessage: confirmed
+              ? undefined
+              : `Tx check failed: from=${fromMatches}, to=${toMatches}, value=${valueMatches}, receipt=${receipt.status}, value=${formatEther(tx.value)} USDC`,
+          }
+        : item,
+    ),
+  };
+  await saveState(normalizedStoreId, nextState);
+
+  return { ok: confirmed, reason: confirmed ? undefined : "tx_verification_failed", state: nextState };
+}
+
+export async function resetOrderPayment(storeId: string, orderIds: string[], errorMessage?: string) {
+  const normalizedStoreId = normalizeStoreId(storeId);
+  const state = await readState(normalizedStoreId);
+  const selectedIds = new Set(orderIds);
+  const hasTarget = state.payments.some((payment) => selectedIds.has(payment.id));
+
+  if (!hasTarget) {
+    return { ok: false as const, reason: "not_found", state };
+  }
+
+  const nextState: StoreState = {
+    ...state,
+    payments: state.payments.map((payment) =>
+      selectedIds.has(payment.id) && ["customer_confirmed", "pending_wallet", "submitted", "failed"].includes(payment.status)
+        ? {
+            ...payment,
+            status: "served",
+            transactionHash: undefined,
+            blockNumber: undefined,
+            gasUsed: undefined,
+            submittedAt: undefined,
+            errorMessage,
+          }
+        : payment,
+    ),
+  };
+  await saveState(normalizedStoreId, nextState);
+
+  return { ok: true as const, state: nextState };
 }
 
 export async function completeOrder(storeId: string, orderId: string) {

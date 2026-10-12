@@ -10,11 +10,13 @@ import {
   readState,
   recordPurchase,
   rejectOrder,
+  resetOrderPayment,
   resetStoreActivity,
   serveOrder,
   normalizeStoreId,
   updateSettings,
   verifyOnchainOrder,
+  verifyOnchainOrders,
 } from "@/lib/store-store";
 import type { CustomerTheme, PaymentMode, PaymentRecord, PaymentTiming, Shop } from "@/lib/store-types";
 
@@ -55,6 +57,16 @@ type StoreAction = {
       action: "verify_onchain_order";
       orderId: string;
       transactionHash: string;
+    }
+  | {
+      action: "verify_onchain_orders";
+      orderIds: string[];
+      transactionHash: string;
+    }
+  | {
+      action: "reset_onchain_order_payment";
+      orderIds: string[];
+      errorMessage?: string;
     }
   | {
       action: "reject_onchain_order";
@@ -222,6 +234,33 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
+  }
+
+  if (body.action === "verify_onchain_orders") {
+    try {
+      const result = await verifyOnchainOrders(storeId, body.orderIds, body.transactionHash);
+      return NextResponse.json(
+        { ...result, state: result.state ? publicState(result.state) : undefined },
+        { status: result.ok ? 200 : 400 },
+      );
+    } catch (error) {
+      return NextResponse.json(
+        {
+          ok: false,
+          reason: "tx_verification_error",
+          message: error instanceof Error ? error.message : "unknown",
+        },
+        { status: 400 },
+      );
+    }
+  }
+
+  if (body.action === "reset_onchain_order_payment") {
+    const result = await resetOrderPayment(storeId, body.orderIds, body.errorMessage);
+    return NextResponse.json(
+      { ...result, state: result.state ? publicState(result.state) : undefined },
+      { status: result.ok ? 200 : 400 },
+    );
   }
 
   if (body.action === "reject_onchain_order") {

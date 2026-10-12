@@ -45,6 +45,7 @@ const copy = {
     switchWallet: "Change wallet",
     connectedWallet: "Connected wallet",
     receivedPay: "Received / Pay",
+    payAllServed: "Pay all served orders",
     paidSynced: "PAID. The merchant dashboard has been updated.",
     orderSubmitted: "Order submitted",
     orderComplete: "Payment complete",
@@ -200,6 +201,7 @@ const copy = {
     switchWallet: "ウォレット変更",
     connectedWallet: "接続中のウォレット",
     receivedPay: "受け取り確認 / 支払いへ",
+    payAllServed: "提供済みをまとめて支払い",
     paidSynced: "PAID。店舗画面にも反映されています。",
     orderSubmitted: "注文を送信しました",
     orderComplete: "支払い完了",
@@ -757,7 +759,7 @@ export default function Home() {
   const activeCustomerOrders = store.payments.filter(
     (payment) =>
       payment.customerId === currentCustomer.id &&
-      ["ordered", "served", "customer_confirmed", "pending_wallet", "submitted"].includes(payment.status),
+      ["ordered", "served", "customer_confirmed", "pending_wallet", "submitted", "failed"].includes(payment.status),
   );
 
   const shopStats = useMemo(() => {
@@ -992,12 +994,28 @@ export default function Home() {
   }
 
   async function confirmServedAndPay(order: PaymentRecord) {
+    await confirmServedOrdersAndPay([order]);
+  }
+
+  async function confirmServedOrdersAndPay(orders: PaymentRecord[]) {
     if (!storeId) {
       return;
     }
 
-    const shop = store.shops.find((item) => item.id === order.shopId);
-    if (!shop) {
+    if (orders.length === 0) {
+      return;
+    }
+
+    const payableOrders = orders.filter((order) =>
+      ["served", "customer_confirmed", "submitted", "failed"].includes(order.status),
+    );
+    if (payableOrders.length === 0) {
+      setStatusMessage(t.notServed);
+      return;
+    }
+
+    const hasMissingShop = payableOrders.some((order) => !store.shops.some((item) => item.id === order.shopId));
+    if (hasMissingShop) {
       setStatusMessage(t.itemMissing);
       return;
     }
@@ -1013,15 +1031,129 @@ export default function Home() {
       return;
     }
 
+    const orderIds = payableOrders.map((order) => order.id);
+    const ordersNeedingReset = payableOrders.filter((order) => order.status !== "served");
+
     try {
       setStatusMessage(store.paymentMode === "arc-mainnet" ? t.confirmServedPay : t.confirmServed);
+      if (ordersNeedingReset.length > 0) {
+        await fetch("/api/store", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "reset_onchain_order_payment",
+            storeId,
+            orderIds: ordersNeedingReset.map((order) => order.id),
+          }),
+        });
+      }
+
+      if (store.paymentMode === "arc-mainnet") {
+        const totalUsdc = payableOrders.reduce((sum, item) => sum + item.priceUsdc, 0);
+        setStatusMessage(t.walletConfirm);
+        const transactionHash = await sendArcPayment(store.recipientAddress, totalUsdc, walletAddress || null);
+
+        const confirmedOrderIds: string[] = [];
+        for (const order of payableOrders) {
+          const confirmResponse = await fetch("/api/store", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "confirm_served_order",
+              storeId,
+              orderId: order.id,
+              payerAddress: walletAddress,
+            }),
+          });
+
+          if (!confirmResponse.ok) {
+            if (confirmedOrderIds.length > 0) {
+              await fetch("/api/store", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  action: "reset_onchain_order_payment",
+                  storeId,
+                  orderIds: confirmedOrderIds,
+                  errorMessage: "confirm failed",
+                }),
+              }).catch(() => undefined);
+            }
+            setStatusMessage(t.notServed);
+            await refreshStore();
+            return;
+          }
+
+          confirmedOrderIds.push(order.id);
+        }
+
+        setStatusMessage(t.arcConfirm);
+        await Promise.all(
+          confirmedOrderIds.map((orderId) =>
+            fetch("/api/store", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: "submit_onchain_order",
+                storeId,
+                orderId,
+                transactionHash,
+              }),
+            }),
+          ),
+        );
+
+        const [{ createPublicClient, http }, { arcMainnet }] = await Promise.all([
+          import("viem"),
+          import("@/lib/arc-mainnet"),
+        ]);
+        const publicClient = createPublicClient({
+          chain: arcMainnet,
+          transport: http(),
+        });
+        await publicClient.waitForTransactionReceipt({ hash: transactionHash });
+
+        const verifyResponse = await fetch("/api/store", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "verify_onchain_orders",
+            storeId,
+            orderIds: confirmedOrderIds,
+            transactionHash,
+          }),
+        });
+
+        if (!verifyResponse.ok) {
+          await fetch("/api/store", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "reset_onchain_order_payment",
+              storeId,
+              orderIds: confirmedOrderIds,
+              errorMessage: "payment verification failed",
+            }),
+          }).catch(() => undefined);
+          setStatusMessage(t.paymentFailed);
+          await refreshStore();
+          return;
+        }
+
+        setSuccessPaymentId(payableOrders[0]?.id || null);
+        setSuccessItemName(payableOrders.length > 1 ? `${payableOrders.length} ${t.orders}` : payableOrders[0]?.itemName || "");
+        setStatusMessage("");
+        await refreshStore();
+        return;
+      }
+
       const confirmResponse = await fetch("/api/store", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "confirm_served_order",
           storeId,
-          orderId: order.id,
+          orderId: payableOrders[0]?.id,
           payerAddress: walletAddress,
         }),
       });
@@ -1032,58 +1164,8 @@ export default function Home() {
         return;
       }
 
-      if (store.paymentMode === "demo") {
-        setSuccessPaymentId(order.id);
-        setSuccessItemName(order.itemName);
-        setStatusMessage("");
-        await refreshStore();
-        return;
-      }
-
-      setStatusMessage(t.walletConfirm);
-      const transactionHash = await sendArcPayment(store.recipientAddress, order.priceUsdc, walletAddress || null);
-
-      setStatusMessage(t.arcConfirm);
-      await fetch("/api/store", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "submit_onchain_order",
-          storeId,
-          orderId: order.id,
-          transactionHash,
-        }),
-      });
-
-      const [{ createPublicClient, http }, { arcMainnet }] = await Promise.all([
-        import("viem"),
-        import("@/lib/arc-mainnet"),
-      ]);
-      const publicClient = createPublicClient({
-        chain: arcMainnet,
-        transport: http(),
-      });
-      await publicClient.waitForTransactionReceipt({ hash: transactionHash });
-
-      const verifyResponse = await fetch("/api/store", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "verify_onchain_order",
-          storeId,
-          orderId: order.id,
-          transactionHash,
-        }),
-      });
-
-      if (!verifyResponse.ok) {
-        setStatusMessage(t.paymentFailed);
-        await refreshStore();
-        return;
-      }
-
-      setSuccessPaymentId(order.id);
-      setSuccessItemName(order.itemName);
+      setSuccessPaymentId(payableOrders[0]?.id || null);
+      setSuccessItemName(payableOrders[0]?.itemName || "");
       setStatusMessage("");
       await refreshStore();
     } catch (error) {
@@ -1091,9 +1173,9 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "reject_onchain_order",
+          action: "reset_onchain_order_payment",
           storeId,
-          orderId: order.id,
+          orderIds,
           errorMessage: error instanceof Error ? error.message : "wallet rejected",
         }),
       }).catch(() => undefined);
@@ -1408,6 +1490,7 @@ export default function Home() {
             }}
             onPickShop={(shopId) => setConfirmShopId(shopId)}
             onConfirmServedOrder={(order) => void confirmServedAndPay(order)}
+            onConfirmServedOrders={(orders) => void confirmServedOrdersAndPay(orders)}
             onOpenHelp={() => setScreen("customer-help")}
           />
         ) : null}
@@ -1956,6 +2039,7 @@ function CustomerScreen({
   onConnectWallet,
   onPickShop,
   onConfirmServedOrder,
+  onConfirmServedOrders,
   onOpenHelp,
   onCloseSuccess,
 }: {
@@ -1979,6 +2063,7 @@ function CustomerScreen({
   onConnectWallet: () => void;
   onPickShop: (shopId: string) => void;
   onConfirmServedOrder: (order: PaymentRecord) => void;
+  onConfirmServedOrders: (orders: PaymentRecord[]) => void;
   onOpenHelp: () => void;
   onCloseSuccess: () => void;
 }) {
@@ -1990,6 +2075,10 @@ function CustomerScreen({
     backgroundColor: theme.buttonColor,
     color: getReadableTextColor(theme.buttonColor),
   };
+  const payableActiveOrders = activeOrders.filter((order) =>
+    ["served", "customer_confirmed", "submitted", "failed"].includes(order.status),
+  );
+  const payableTotalUsdc = payableActiveOrders.reduce((sum, order) => sum + order.priceUsdc, 0);
 
   return (
     <section className="flex-1 px-4 py-5" style={{ backgroundColor: theme.backgroundColor }}>
@@ -2047,6 +2136,16 @@ function CustomerScreen({
       {activeOrders.length > 0 ? (
         <section className="mt-4 rounded-lg border border-[#d9e3df] bg-white p-5 shadow-sm">
           <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#0f6b57]">{t.currentOrder}</p>
+          {paymentMode === "arc-mainnet" && payableActiveOrders.length > 1 ? (
+            <button
+              className="touch-button buy-button mt-3 w-full text-lg"
+              type="button"
+              style={themedButtonStyle}
+              onClick={() => onConfirmServedOrders(payableActiveOrders)}
+            >
+              {t.payAllServed} / {formatUsdc(payableTotalUsdc)} USDC
+            </button>
+          ) : null}
           <div className="mt-3 grid gap-3">
             {activeOrders.map((activeOrder) => (
               <div key={activeOrder.id} className="rounded-lg border border-[#d9e3df] p-3">
@@ -2061,7 +2160,7 @@ function CustomerScreen({
                     {statusLabel(activeOrder.status, t)}
                   </span>
                 </div>
-                {activeOrder.status === "served" ? (
+                {["served", "customer_confirmed", "submitted", "failed"].includes(activeOrder.status) ? (
                   <button
                     className="touch-button buy-button mt-4 w-full text-lg"
                     type="button"
