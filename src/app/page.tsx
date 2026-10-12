@@ -46,6 +46,8 @@ const copy = {
     connectedWallet: "Connected wallet",
     receivedPay: "Received / Pay",
     payAllServed: "Pay all served orders",
+    paySelectedOrders: "Pay selected orders",
+    selectForPayment: "Select for payment",
     paidSynced: "PAID. The merchant dashboard has been updated.",
     orderSubmitted: "Order submitted",
     orderComplete: "Payment complete",
@@ -202,6 +204,8 @@ const copy = {
     connectedWallet: "接続中のウォレット",
     receivedPay: "受け取り確認 / 支払いへ",
     payAllServed: "提供済みをまとめて支払い",
+    paySelectedOrders: "選択した注文を支払い",
+    selectForPayment: "支払い対象にする",
     paidSynced: "PAID。店舗画面にも反映されています。",
     orderSubmitted: "注文を送信しました",
     orderComplete: "支払い完了",
@@ -2078,7 +2082,19 @@ function CustomerScreen({
   const payableActiveOrders = activeOrders.filter((order) =>
     ["served", "customer_confirmed", "submitted", "failed"].includes(order.status),
   );
-  const payableTotalUsdc = payableActiveOrders.reduce((sum, order) => sum + order.priceUsdc, 0);
+  const payableOrderIds = payableActiveOrders.map((order) => order.id);
+  const [selectedPaymentOrderIds, setSelectedPaymentOrderIds] = useState<string[] | null>(null);
+  const effectiveSelectedPaymentOrderIds = selectedPaymentOrderIds ?? payableOrderIds;
+  const selectedPaymentOrders = payableActiveOrders.filter((order) => effectiveSelectedPaymentOrderIds.includes(order.id));
+  const selectedPaymentTotalUsdc = selectedPaymentOrders.reduce((sum, order) => sum + order.priceUsdc, 0);
+
+  function togglePaymentOrder(orderId: string) {
+    setSelectedPaymentOrderIds((current) =>
+      (current ?? payableOrderIds).includes(orderId)
+        ? (current ?? payableOrderIds).filter((id) => id !== orderId)
+        : [...(current ?? payableOrderIds), orderId],
+    );
+  }
 
   return (
     <section className="flex-1 px-4 py-5" style={{ backgroundColor: theme.backgroundColor }}>
@@ -2141,9 +2157,10 @@ function CustomerScreen({
               className="touch-button buy-button mt-3 w-full text-lg"
               type="button"
               style={themedButtonStyle}
-              onClick={() => onConfirmServedOrders(payableActiveOrders)}
+              disabled={selectedPaymentOrders.length === 0}
+              onClick={() => onConfirmServedOrders(selectedPaymentOrders)}
             >
-              {t.payAllServed} / {formatUsdc(payableTotalUsdc)} USDC
+              {t.paySelectedOrders} / {formatUsdc(selectedPaymentTotalUsdc)} USDC
             </button>
           ) : null}
           <div className="mt-3 grid gap-3">
@@ -2161,14 +2178,27 @@ function CustomerScreen({
                   </span>
                 </div>
                 {["served", "customer_confirmed", "submitted", "failed"].includes(activeOrder.status) ? (
-                  <button
-                    className="touch-button buy-button mt-4 w-full text-lg"
-                    type="button"
-                    style={themedButtonStyle}
-                    onClick={() => onConfirmServedOrder(activeOrder)}
-                  >
-                    {t.receivedPay}
-                  </button>
+                  <>
+                    {paymentMode === "arc-mainnet" && payableActiveOrders.length > 1 ? (
+                      <label className="mt-4 flex min-h-12 items-center gap-3 rounded-lg border border-[#d9e3df] bg-[#f5f7f6] px-4 py-3 text-base font-bold text-[#17201d]">
+                        <input
+                          className="h-5 w-5 accent-[#0f6b57]"
+                          type="checkbox"
+                          checked={effectiveSelectedPaymentOrderIds.includes(activeOrder.id)}
+                          onChange={() => togglePaymentOrder(activeOrder.id)}
+                        />
+                        {t.selectForPayment}
+                      </label>
+                    ) : null}
+                    <button
+                      className="touch-button buy-button mt-4 w-full text-lg"
+                      type="button"
+                      style={themedButtonStyle}
+                      onClick={() => onConfirmServedOrder(activeOrder)}
+                    >
+                      {t.receivedPay}
+                    </button>
+                  </>
                 ) : null}
               </div>
             ))}
