@@ -4,7 +4,7 @@ ArcTable is a table-ordering system for small shops and table-service venues wit
 
 Guests open a table-specific menu from a QR code, place one or more orders, and pay with Arc Mainnet USDC. The merchant can choose prepaid ordering or pay-after-served ordering for each store.
 
-The project was built for Arc Microgrants as a practical store workflow rather than a generic wallet transfer demo.
+The project is designed as a practical store workflow rather than a simple wallet transfer tool.
 
 ## Why Arc
 
@@ -30,13 +30,13 @@ This creates a practical flow for small shops:
 - Payment: Arc Mainnet USDC transfer through the connected wallet
 - Payment timing: merchant-selectable prepaid or pay-after-served flow for Arc USDC mode
 - Transaction evidence: paid merchant orders and sales report details show the Arc transaction URL after payment
-- Test checkout mode: wallet-free flow for demoing the store workflow
+- Test checkout mode: wallet-free flow for testing the store workflow
 - Languages: English and Japanese UI toggle
 - Help pages: concise customer guide, store setup guide, and merchant operations guide
 - Merchant-editable store settings: payout address, payment timing, item name, description, photo URL, USDC price, stock count, and customer screen colors
 - Stock handling: items can be marked `Sold Out` without removing them from the menu
 
-## Demo Flow
+## Basic Store Workflow
 
 1. Create a store workspace.
 2. Save the private manager URL shown after store creation.
@@ -59,10 +59,10 @@ This creates a practical flow for small shops:
 
 ArcTable has two payment modes:
 
-- `Test checkout`: no wallet is required. This mode is useful for rehearsing the table-ordering workflow. Orders become paid after the customer confirms receipt.
+- `Test checkout`: no wallet is required. This mode is useful for testing the table-ordering workflow before using live payments. Orders become paid after the customer confirms receipt.
 - `Arc USDC`: the customer pays on Arc Mainnet. A valid Arc-compatible payout address is required in store settings.
 
-The hackathon submission focuses on the `Arc USDC` mode. `Test checkout` is included only as a demonstration aid.
+For real payment flows, use `Arc USDC` mode. `Test checkout` is included for setup checks and operational testing.
 
 Arc USDC stores can choose one of two payment timings:
 
@@ -140,7 +140,7 @@ Reservations, coupons, NFTs, points, user accounts, reviews, multi-store managem
 
 ArcTable was developed with the help of ChatGPT and Codex.
 
-- ChatGPT was used for product concept discussion, MVP scoping, UX decisions, and hackathon positioning.
+- ChatGPT was used for product concept discussion, MVP scoping, UX decisions, and Arc Microgrants positioning.
 - Codex was used for codebase inspection, implementation, debugging, refactoring, build verification, and README updates.
 
 The implementation evolved from an earlier store/festival-style ordering prototype into a focused Arc Mainnet table-ordering and USDC settlement app.
@@ -173,7 +173,7 @@ ArcTableは、小さなお店やテーブル接客のある店舗向けの、Arc
 
 お客様はテーブルごとのQRコードからメニューを開き、1つまたは複数の商品を注文し、Arc Mainnet USDCで支払います。店舗は、店舗ごとに事前会計または提供後会計を選択できます。
 
-このプロジェクトはArc Microgrants向けに、単なるウォレット送金デモではなく、実際の店舗業務に近いワークフローとして作成しました。
+このプロジェクトは、単なるウォレット送金ツールではなく、実際の店舗業務に近いワークフローとして設計しています。
 
 ## Arcを使う理由
 
@@ -199,13 +199,13 @@ ArcTableは、テーブル注文の決済レイヤーとしてArc Mainnetを使�
 - 決済: 接続ウォレットからArc Mainnet USDCを送金
 - 支払いタイミング: Arc USDCモードで、店舗が事前会計または提供後会計を選択
 - 取引証跡: 支払済み注文と売上レポート詳細にArcの取引URLを表示
-- テスト会計モード: ウォレットなしで店舗フローをデモ可能
+- テスト会計モード: ウォレットなしで店舗フローを確認可能
 - 言語: 英語と日本語のUI切り替え
 - 使い方ページ: お客様向け、店舗設定、受注・売上の簡潔なガイド
 - 店舗編集項目: 受取アドレス、支払いタイミング、商品名、説明、写真URL、USDC価格、在庫数、お客様画面の色
 - 在庫管理: 商品を削除せずに`Sold Out`として表示し、注文不可にできる
 
-## デモの流れ
+## 基本的な店舗ワークフロー
 
 1. 店舗ワークスペースを作成する。
 2. 作成後に表示される管理用URLを保存する。
@@ -228,10 +228,10 @@ ArcTableは、テーブル注文の決済レイヤーとしてArc Mainnetを使�
 
 ArcTableには2つの支払いモードがあります。
 
-- `Test checkout`: ウォレット不要のモードです。テーブルオーダーの流れを練習・デモするために使えます。お客様が受け取り確認をすると支払済みになります。
+- `Test checkout`: ウォレット不要のモードです。実決済を使う前に、テーブルオーダーの流れを確認するために使えます。お客様が受け取り確認をすると支払済みになります。
 - `Arc USDC`: お客様がArc Mainnet上で支払います。店舗設定にArc対応の受取アドレスが必要です。
 
-ハッカソン提出では`Arc USDC`モードを中心にしています。`Test checkout`はデモ補助用です。
+実際の支払いフローでは`Arc USDC`モードを使用します。`Test checkout`は設定確認や運用テスト用です。
 
 Arc USDCの店舗は、2つの支払いタイミングを選択できます。
 
@@ -309,7 +309,7 @@ UPSTASH_REDIS_REST_TOKEN=your_upstash_redis_rest_token
 
 ArcTableはChatGPTとCodexの支援を受けて開発しました。
 
-- ChatGPTは、プロダクトコンセプト、MVP範囲、UX判断、ハッカソン向けの位置付けに使用しました。
+- ChatGPTは、プロダクトコンセプト、MVP範囲、UX判断、Arc Microgrants向けの位置付けに使用しました。
 - Codexは、コードベース調査、実装、デバッグ、リファクタリング、ビルド検証、README更新に使用しました。
 
 この実装は、以前の店舗・イベント向け注文プロトタイプから、Arc MainnetのテーブルオーダーとUSDC決済に特化したアプリへ発展しました。
