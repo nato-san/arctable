@@ -847,64 +847,67 @@ export async function completeOrder(storeId: string, orderId: string) {
 export async function closeSales(storeId: string) {
   const normalizedStoreId = normalizeStoreId(storeId);
   const state = await readState(normalizedStoreId);
+  const closeablePayments = state.payments.filter((payment) => !payment.closedAt);
   const targetPayments = state.payments.filter(
     (payment) => ["paid", "completed"].includes(payment.status) && !payment.closedAt,
   );
 
-  if (targetPayments.length === 0) {
+  if (closeablePayments.length === 0) {
     return { ok: false as const, reason: "no_sales_to_close", state };
   }
 
   const now = new Date().toISOString();
-  const reportId = createId("report");
-  const periodStart = targetPayments.reduce(
-    (oldest, payment) => (new Date(payment.createdAt).getTime() < new Date(oldest).getTime() ? payment.createdAt : oldest),
-    targetPayments[0]?.createdAt || now,
-  );
-  const itemBreakdown = Array.from(
-    targetPayments.reduce((map, payment) => {
-      const current = map.get(payment.shopId) || {
-        shopId: payment.shopId,
-        itemName: payment.itemName,
-        quantity: 0,
-        totalUsdc: 0,
-      };
-      current.quantity += payment.quantity;
-      current.totalUsdc += payment.priceUsdc;
-      map.set(payment.shopId, current);
-      return map;
-    }, new Map<string, SalesReport["itemBreakdown"][number]>()),
-  ).map(([, item]) => item);
-  const report: SalesReport = {
-    id: reportId,
-    title: new Intl.DateTimeFormat("en-CA", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(new Date(now)),
-    periodStart,
-    periodEnd: now,
-    closedAt: now,
-    totalUsdc: targetPayments.reduce((sum, payment) => sum + payment.priceUsdc, 0),
-    orderCount: targetPayments.length,
-    itemBreakdown,
-    orderIds: targetPayments.map((payment) => payment.id),
-  };
-  const targetIds = new Set(report.orderIds);
+  const closeableIds = new Set(closeablePayments.map((payment) => payment.id));
+  const reportId = targetPayments.length > 0 ? createId("report") : "";
+  const report =
+    targetPayments.length > 0
+      ? {
+          id: reportId,
+          title: new Intl.DateTimeFormat("en-CA", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+          }).format(new Date(now)),
+          periodStart: targetPayments.reduce(
+            (oldest, payment) => (new Date(payment.createdAt).getTime() < new Date(oldest).getTime() ? payment.createdAt : oldest),
+            targetPayments[0]?.createdAt || now,
+          ),
+          periodEnd: now,
+          closedAt: now,
+          totalUsdc: targetPayments.reduce((sum, payment) => sum + payment.priceUsdc, 0),
+          orderCount: targetPayments.length,
+          itemBreakdown: Array.from(
+            targetPayments.reduce((map, payment) => {
+              const current = map.get(payment.shopId) || {
+                shopId: payment.shopId,
+                itemName: payment.itemName,
+                quantity: 0,
+                totalUsdc: 0,
+              };
+              current.quantity += payment.quantity;
+              current.totalUsdc += payment.priceUsdc;
+              map.set(payment.shopId, current);
+              return map;
+            }, new Map<string, SalesReport["itemBreakdown"][number]>()),
+          ).map(([, item]) => item),
+          orderIds: targetPayments.map((payment) => payment.id),
+        }
+      : null;
+  const reportOrderIds = new Set(report?.orderIds || []);
   const nextState: StoreState = {
     ...state,
     payments: state.payments.map((payment) =>
-      targetIds.has(payment.id)
+      closeableIds.has(payment.id)
         ? {
             ...payment,
             closedAt: now,
-            salesReportId: reportId,
+            salesReportId: reportOrderIds.has(payment.id) ? reportId : payment.salesReportId,
           }
         : payment,
     ),
-    salesReports: [report, ...state.salesReports],
+    salesReports: report ? [report, ...state.salesReports] : state.salesReports,
   };
   await saveState(normalizedStoreId, nextState);
 

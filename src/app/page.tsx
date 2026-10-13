@@ -840,6 +840,7 @@ export default function Home() {
   const activeCustomerOrders = store.payments.filter(
     (payment) =>
       payment.customerId === currentCustomer.id &&
+      !payment.closedAt &&
       ["ordered", "served", "customer_confirmed", "pending_wallet", "submitted", "failed"].includes(payment.status),
   );
 
@@ -2547,7 +2548,7 @@ function MerchantScreen({
         <button
           className="mt-4 rounded-md bg-[#f8d45d] px-4 py-3 text-sm font-black text-[#23190b] disabled:opacity-45"
           type="button"
-          disabled={total <= 0}
+          disabled={total <= 0 && allRecords.length === 0}
           onClick={onCloseSales}
         >
           {t.closeSales}
