@@ -837,10 +837,13 @@ export default function Home() {
     : store.shops[0]?.id || "";
   const confirmShop = store.shops.find((shop) => shop.id === confirmShopId) || null;
   const successPayment = successPaymentId ? store.payments.find((payment) => payment.id === successPaymentId) || null : null;
+  const latestSalesClosedAt = store.salesReports[0]?.closedAt || "";
+  const latestSalesClosedTime = latestSalesClosedAt ? new Date(latestSalesClosedAt).getTime() : 0;
   const activeCustomerOrders = store.payments.filter(
     (payment) =>
       payment.customerId === currentCustomer.id &&
       !payment.closedAt &&
+      (!latestSalesClosedTime || new Date(payment.createdAt).getTime() > latestSalesClosedTime) &&
       ["ordered", "served", "customer_confirmed", "pending_wallet", "submitted", "failed"].includes(payment.status),
   );
 
@@ -849,7 +852,9 @@ export default function Home() {
       const records = store.payments.filter((payment) => payment.shopId === shop.id);
       const confirmedRecords = records.filter(
         (payment) =>
-          (payment.status === "paid" || payment.status === "completed") && !payment.closedAt,
+          (payment.status === "paid" || payment.status === "completed") &&
+          !payment.closedAt &&
+          (!latestSalesClosedTime || new Date(payment.createdAt).getTime() > latestSalesClosedTime),
       );
       const sales = confirmedRecords.reduce((sum, payment) => sum + payment.priceUsdc, 0);
 
@@ -860,7 +865,7 @@ export default function Home() {
         count: confirmedRecords.length,
       };
     });
-  }, [store.payments, store.shops]);
+  }, [latestSalesClosedTime, store.payments, store.shops]);
 
   const storeTotal = shopStats.reduce((sum, item) => sum + item.sales, 0);
   const selectedStats = shopStats.find((item) => item.shop.id === effectiveSelectedShopId) || shopStats[0];
@@ -1614,6 +1619,7 @@ export default function Home() {
             selectedShopId={effectiveSelectedShopId}
             selectedStats={selectedStats}
             shopStats={shopStats}
+            latestSalesClosedAt={latestSalesClosedAt}
             total={storeTotal}
             paymentMode={store.paymentMode}
             recipientAddress={store.recipientAddress}
@@ -2485,6 +2491,7 @@ function MerchantScreen({
   selectedShopId,
   selectedStats,
   shopStats,
+  latestSalesClosedAt,
   total,
   paymentMode,
   recipientAddress,
@@ -2511,6 +2518,7 @@ function MerchantScreen({
     sales: number;
     count: number;
   }[];
+  latestSalesClosedAt: string;
   total: number;
   paymentMode: PaymentMode;
   recipientAddress?: string;
@@ -2528,7 +2536,10 @@ function MerchantScreen({
 
   const allRecords = shopStats
     .flatMap(({ records }) => records)
-    .filter((record) => !record.closedAt)
+    .filter((record) => {
+      const latestSalesClosedTime = latestSalesClosedAt ? new Date(latestSalesClosedAt).getTime() : 0;
+      return !record.closedAt && (!latestSalesClosedTime || new Date(record.createdAt).getTime() > latestSalesClosedTime);
+    })
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   const managerUrl =
     typeof window === "undefined" || !storeId || !adminToken
